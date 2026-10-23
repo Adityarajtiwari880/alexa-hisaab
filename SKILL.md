@@ -88,6 +88,24 @@ Provides macro-level yearly household analytics and spending intelligence across
 - **Spoken Summary**: Natural narrative for Alexa+ voice synthesis (*"You spent 1.2 Lakhs on household help this year. Sunita took the most leave in May, and Ramesh had the best attendance."*).
 - **Structured JSON**: Returns full monthly spending trend, service-by-service breakdown, attendance champion, peak leave month, and delivery units for LLM reasoning.
 
+### 11. `log_pieces`
+Records piece-rate services such as Dhobi ironing or tailoring. Multiplies the piece count by the helper's unit rate (e.g., ₹5/piece) and appends directly to their monthly ledger tab.
+- `person`: Helper name (e.g., "Ramlal Dhobi").
+- `count`: Number of clothes / pieces.
+- `rate_per_piece`: Optional custom rate override.
+
+### 12. `log_penalty`
+Records transparent damage or penalty deductions (e.g. broken glassware, damaged property). Deducts directly from final gross salary and itemizes clearly on the WhatsApp salary slip.
+- `person`: Staff name (e.g., "Ramesh").
+- `amount`: Token deduction amount (e.g., ₹50).
+- `reason`: Description of damage / reason (e.g., "broken glass").
+
+### 13. `split_bill`
+Splits household bills (maid, cook, Wi-Fi) among flatmates or PG roommates. Produces equal shares, separate UPI deep links, and pre-formatted WhatsApp payment requests.
+- `person`: Staff or service name (e.g., "Sunita").
+- `split_with`: Names of flatmates (e.g., "Amit", "Rahul").
+- `amount`: Optional bill amount override (defaults to current balance).
+
 ## Multi-Modal Output & Integrations
 - **Echo Show / Web Card**: Displays itemized ledger lines, pro-rated deductions, and live balance.
 - **Dynamic UPI QR Code**: Instant deep link `upi://pay?pa={upi_id}&pn={name}&am={balance}&tn=Salary` for 1-tap mobile payment.

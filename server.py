@@ -311,6 +311,11 @@ def compute_month(conn, person: sqlite3.Row, year: int, month: int) -> dict:
     status = {}
     advances = salary_paid = bonus = 0.0
     late_days = []
+    penalties = 0.0
+    penalty_list = []
+    piece_work_total = 0.0
+    piece_items = []
+
     for e in events:
         if e["kind"] in ("absent", "half_day", "present"):
             status[e["day"]] = e["kind"]
@@ -322,6 +327,12 @@ def compute_month(conn, person: sqlite3.Row, year: int, month: int) -> dict:
             salary_paid += e["amount"]
         elif e["kind"] == "bonus":
             bonus += e["amount"]
+        elif e["kind"] == "penalty":
+            penalties += e["amount"]
+            penalty_list.append({"amount": e["amount"], "reason": e["note"], "day": e["day"]})
+        elif e["kind"] == "pieces":
+            piece_work_total += e["amount"]
+            piece_items.append({"amount": e["amount"], "note": e["note"], "day": e["day"]})
 
     off = person["weekly_off"]
     off_days = {d for d in range(1, dim + 1) if off >= 0 and date(year, month, d).weekday() == off}
@@ -336,7 +347,12 @@ def compute_month(conn, person: sqlite3.Row, year: int, month: int) -> dict:
     absent, half = counts("absent"), counts("half_day")
     lost = absent + 0.5 * half
 
-    if person["unit"] == "day":
+    if person["unit"] == "piece":
+        per_day = 0.0
+        unpaid = 0.0
+        gross = piece_work_total
+        full = piece_work_total
+    elif person["unit"] == "day":
         per_day = person["rate"]
         unpaid = lost
         gross = per_day * (working_days - lost)
@@ -347,7 +363,7 @@ def compute_month(conn, person: sqlite3.Row, year: int, month: int) -> dict:
         gross = person["rate"] - unpaid * per_day
         full = person["rate"]
 
-    balance = gross + bonus - advances - salary_paid
+    balance = gross + bonus + (piece_work_total if person["unit"] != "piece" else 0) - advances - salary_paid - penalties
     limit = person["rate"] * person["advance_limit_pct"] / 100
     warn = (person["unit"] == "month" and advances > limit)
 
@@ -365,6 +381,8 @@ def compute_month(conn, person: sqlite3.Row, year: int, month: int) -> dict:
         "unpaid_days": unpaid, "per_day": per_day,
         "full_pay": full, "deduction": full - gross, "gross": gross,
         "bonus": bonus, "advances": advances, "salary_paid": salary_paid,
+        "penalties": penalties, "penalty_list": penalty_list,
+        "piece_work_total": piece_work_total, "piece_items": piece_items,
         "balance": balance, "advance_limit": limit, "advance_warning": warn,
         "upi_id": upi_id, "upi_url": upi_url, "qr_url": qr_url,
     }
@@ -439,6 +457,121 @@ def slip_text(person, m: dict) -> str:
 
 
 # ----------------------------------------------------------------- MCP Tools
+
+@mcp.tool()
+@safe
+def log_pieces(
+    person: str = "Ramlal Dhobi",
+    count: int = 1,
+    rate_per_piece: Optional[float] = None,
+    day: str = "",
+    note: str = "",
+) -> dict:
+    """Record piece-rate work (e.g., Dhobi ironing clothes, tailor alterations).
+    
+    Multiplies piece count by the person's unit rate and appends to their running monthly tab.
+    """
+    if count <= 0:
+        raise ValueError("Piece count must be at least 1.")
+    d = parse_day(day)
+    with db() as conn:
+        p = resolve_person(conn, person)
+        rate = float(rate_per_piece) if rate_per_piece is not None else float(p["rate"])
+        total_amt = count * rate
+        desc = note or f"{count} clothes ironed (@ ₹{rate:g}/piece)"
+        add_event(conn, p["id"], d, "pieces", total_amt, desc)
+        m = compute_month(conn, p, d.year, d.month)
+    return {
+        "ok": True,
+        "person": p["name"],
+        "count": count,
+        "rate_per_piece": rate,
+        "total_added": total_amt,
+        "balance_so_far": round(m["balance"]),
+        "spoken_summary": f"Logged {count} clothes for {p['name']} at {rate:g} rupees per piece ({SYMBOL}{money(total_amt)}). Running balance now {spoken(m['balance'])}.",
+    }
+
+
+@mcp.tool()
+@safe
+def log_penalty(
+    person: str,
+    amount: float,
+    reason: str = "",
+    day: str = "",
+) -> dict:
+    """Record a transparent damage or penalty deduction against a helper (e.g. broken dish or damage).
+    
+    Directly subtracts from final gross payout and itemizes transparently on the WhatsApp salary slip.
+    """
+    if amount <= 0:
+        raise ValueError("Penalty amount must be greater than zero.")
+    d = parse_day(day)
+    with db() as conn:
+        p = resolve_person(conn, person)
+        desc = reason.strip() or "Damage / Loss Deduction"
+        add_event(conn, p["id"], d, "penalty", amount, desc)
+        m = compute_month(conn, p, d.year, d.month)
+    reason_txt = f" for {desc}" if desc else ""
+    return {
+        "ok": True,
+        "person": p["name"],
+        "amount_deducted": amount,
+        "reason": desc,
+        "balance_now": round(m["balance"]),
+        "spoken_summary": f"Deducted {spoken(amount)} from {p['name']}{reason_txt}. Remaining balance now {spoken(m['balance'])}.",
+    }
+
+
+@mcp.tool()
+@safe
+def split_bill(
+    person: str = "Sunita",
+    split_with: str = "Amit",
+    amount: Optional[float] = None,
+    month: str = "",
+) -> dict:
+    """Split a household bill or staff salary among flatmates or PG roommates.
+    
+    Generates equal shares and produces instant 1-tap UPI deep links and WhatsApp payment requests.
+    """
+    with db() as conn:
+        p = resolve_person(conn, person)
+        y, mth = parse_month(month)
+        m = compute_month(conn, p, y, mth)
+        total_bill = float(amount) if amount is not None and amount > 0 else float(m["balance"])
+    
+    # Split with comma or 'and' separated names
+    raw_names = re.split(r",|and|&", split_with)
+    flatmates = [n.strip().title() for n in raw_names if n.strip()]
+    if not flatmates:
+        flatmates = ["Amit"]
+    
+    total_people = 1 + len(flatmates) # user + flatmates
+    share = round(total_bill / total_people, 2)
+    share_int = int(round(share))
+
+    upi_id = p["upi_id"] or f"{p['name'].lower()}@apl"
+    links = {}
+    for fm in flatmates:
+        memo = f"Share_for_{p['name']}_{fm}"
+        upi_url = f"upi://pay?pa={urllib.parse.quote(upi_id)}&pn={urllib.parse.quote(p['name'])}&am={share_int}&cu=INR&tn={urllib.parse.quote(memo)}"
+        wa_msg = f"Hey {fm}, your share for {p['name']}'s bill is ₹{share_int}. Please pay via UPI: {upi_url}"
+        wa_url = f"https://wa.me/?text={urllib.parse.quote(wa_msg)}"
+        links[fm] = {"share": share_int, "upi_url": upi_url, "whatsapp_request": wa_url}
+
+    names_str = " and ".join(flatmates)
+    return {
+        "ok": True,
+        "person": p["name"],
+        "total_bill": round(total_bill),
+        "total_shares": total_people,
+        "share_per_person": share_int,
+        "split_with": flatmates,
+        "links": links,
+        "spoken_summary": f"Split the {spoken(total_bill)} {p['name']} bill into {total_people} shares of {spoken(share_int)} each for you and {names_str}. Payment links are ready.",
+    }
+
 @mcp.tool()
 @safe
 def set_up_person(
@@ -449,11 +582,14 @@ def set_up_person(
     paid_leaves_per_month: float = 1,
     pay_day: int = 1,
     upi_id: str = "",
+    category: str = "staff",
+    item_detail: str = "",
+    icon: str = "",
 ) -> dict:
     """Set up or update a household staff member: maid, cook, driver, milkman, or tutor."""
     unit = (pay_unit or "month").strip().lower()
-    if unit not in ("month", "day"):
-        raise ValueError("Pay can be per month or per day.")
+    if unit not in ("month", "day", "piece"):
+        raise ValueError("Pay can be per month, per day, or per piece.")
     if pay_amount <= 0:
         raise ValueError("Pay amount must be greater than zero.")
     if not 1 <= int(pay_day) <= 28:
@@ -1638,6 +1774,10 @@ def render_page(request: Request) -> str:
             if m["deduction"]:
                 n = m["absent_days"] + 0.5 * m["half_days"]
                 rows.append((f"Absent {n:g} day{'s' if n != 1 else ''}, {m['paid_leaves']:g} paid leave", -m["deduction"]))
+            if m.get("penalties"):
+                rows.append(("Damage / Penalty deduction", -m["penalties"]))
+            if m.get("piece_work_total") and p["unit"] != "piece":
+                rows.append(("Ironing / Piece work", m["piece_work_total"]))
             if m["bonus"]:
                 rows.append(("Bonus", m["bonus"]))
             if m["advances"]:
@@ -1696,6 +1836,9 @@ def render_page(request: Request) -> str:
                 delivery_btns = f'''<button class="prompt-btn" style="padding:0.4rem 0.8rem; font-size:0.8rem;" onclick="quickAsk('Pause newspaper today for {escape(p["name"])}')">⏸️ Vacation Hold</button>'''
             elif cat == "utility":
                 delivery_btns = f'''<button class="prompt-btn" style="padding:0.4rem 0.8rem; font-size:0.8rem;" onclick="quickAsk('Water can delivered today for {escape(p["name"])}')">💧 +1 Can Delivered</button>'''
+            elif cat == "service" or p["unit"] == "piece":
+                delivery_btns = f'''<button class="prompt-btn" style="padding:0.4rem 0.8rem; font-size:0.8rem;" onclick="quickAsk(\'Gave 12 clothes to {escape(p["name"])} today\')">🧺 +12 Clothes (₹60)</button>
+                                  <button class="prompt-btn" style="padding:0.4rem 0.8rem; font-size:0.8rem;" onclick="quickAsk(\'Gave 20 clothes to {escape(p["name"])} today\')">🧺 +20 Clothes (₹100)</button>'''
 
             blocks.append(
                 f'<div class="staff-card" id="card-{p_id}" data-category="{escape(cat)}">'
@@ -1720,6 +1863,8 @@ def render_page(request: Request) -> str:
                 f'  {extra_html}'
                 f'  <div class="card-actions" style="display:flex; gap:0.5rem; flex-wrap:wrap;">'
                 f'    {delivery_btns}'
+                f'    <button class="prompt-btn" style="padding:0.5rem 0.9rem;" onclick="openSplitModal(\'{escape(p["name"])}\', {int(round(m["balance"]))})">👥 Split with Flatmate</button>'
+                f'    <button class="prompt-btn" style="padding:0.5rem 0.9rem;" onclick="promptPenalty(\'{escape(p["name"])}\')">⚠️ Deduct Penalty</button>'
                 f'    <button class="btn-upi" onclick="toggleUpiDrawer({p_id})">💳 Pay with Amazon Pay / UPI</button>'
                 f'    <a class="btn-whatsapp" href="{wa}" target="_blank" rel="noopener">💬 WhatsApp Slip</a>'
                 f'  </div>'
@@ -1811,6 +1956,10 @@ def render_page(request: Request) -> str:
       </div>
 
       <div class="prompt-grid" id="promptGrid">
+        <!-- Dhobi, Penalty & Flatmate Splitter Features -->
+        <button class="prompt-btn" data-cat="all pay" onclick="quickAsk('Gave 12 clothes to the dhobi today')">🧺 Gave 12 clothes to the dhobi today</button>
+        <button class="prompt-btn" data-cat="all pay" onclick="quickAsk('Deduct 50 rupees from Ramesh for the broken glass')">⚠️ Deduct ₹50 from Ramesh for broken glass</button>
+        <button class="prompt-btn" data-cat="all pay" onclick="quickAsk('Split the maid 4000 bill with Amit')">👥 Split maid's ₹4,000 bill with Amit</button>
         <!-- Annual Analytics Insights -->
         <button class="prompt-btn" data-cat="all balance" onclick="quickAsk('What is my household summary for the year?')">📊 Household Summary for the Year</button>
         <button class="prompt-btn hindi-chip" data-cat="hindi all" onclick="quickAsk('Saal ka kul hisaab batao annual summary')">🗣️ साल भर का कुल हिसाब (Annual Insights)</button>
@@ -2233,8 +2382,8 @@ function initSpeechRecognition() {{
         }}
       }} else if (e.results[i].isFinal && transcript.length > 3) {{
         // Direct intent matching without wake word
-        const hasStaff = /(?:sunita|ramesh|raju|anil|सुनीता|रमेश|राजू|अनिल)/i.test(transcript);
-        const hasIntent = /(?:hisaab|hisab|salary|pay|advance|absent|chhutti|half|balance|undo|wapas|हिसाब|वेतन|छुट्टी)/i.test(transcript);
+        const hasStaff = /(?:sunita|ramesh|raju|anil|ramlal|dhobi|amit|दूध|धोबी|सुनीता|रमेश|राजू|अनिल)/i.test(transcript);
+        const hasIntent = /(?:hisaab|hisab|salary|pay|advance|absent|chhutti|half|balance|undo|wapas|cloth|iron|press|kapde|penalty|deduct|broken|damage|split|share|bill|year|annual|summary|insight|हिसाब|वेतन|छुट्टी|कपड़े|जुर्माना|साल)/i.test(transcript);
         if (hasStaff || hasIntent || micBtn.innerText.includes('Listening')) {{
           document.getElementById('voiceInput').value = transcript;
           sendVoicePrompt(transcript);
@@ -2307,6 +2456,23 @@ function quickAsk(text) {{
   sendVoicePrompt(text);
 }}
 
+
+
+function promptPenalty(person) {{
+  const amt = prompt('Enter penalty/damage amount to deduct from ' + person + ' (₹):', '50');
+  if (amt && parseFloat(amt) > 0) {{
+    const reason = prompt('Reason for deduction (e.g. broken glass, late arrival):', 'broken glass');
+    quickAsk('Deduct ' + amt + ' rupees from ' + person + ' for ' + (reason || 'damage'));
+  }}
+}}
+
+function openSplitModal(person, balance) {{
+  const flatmate = prompt('Enter flatmate name to split ' + person + ' bill with:', 'Amit');
+  if (flatmate) {{
+    const amt = prompt('Bill amount to split (leave blank for current balance ₹' + balance + '):', balance || '4000');
+    quickAsk('Split ' + person + ' ' + (amt || balance) + ' bill with ' + flatmate);
+  }}
+}}
 
 function filterServiceCategory(cat, btn) {{
   document.querySelectorAll('.cat-pill').forEach(b => b.classList.remove('active'));
@@ -2683,6 +2849,48 @@ async def simulate_voice(request: Request) -> Response:
                     target_person = cand["name"]
                     matched_explicit = True
                     break
+
+    # Intent A: Dhobi / Ironing Piece Work Counter
+    if any(k in prompt for k in ["dhobi", "clothes", "ironing", "press", "kapde", "कपड़े", "धोबी"]):
+        count_match = re.search(r"(\d+)", prompt)
+        piece_count = int(count_match.group(1)) if count_match else 10
+        # Find dhobi service
+        dhobi_person = "Ramlal Dhobi"
+        for p in people:
+            if "dhobi" in p["name"].lower() or p["category"] == "service" or p["unit"] == "piece":
+                dhobi_person = p["name"]
+                break
+        res = log_pieces(person=dhobi_person, count=piece_count)
+        mutated = True
+        trace["tool"] = "log_pieces"
+        trace["arguments"] = {"person": dhobi_person, "count": piece_count}
+        trace["result"] = res
+        return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
+
+    # Intent B: Damage & Penalty Deduction
+    if any(k in prompt for k in ["deduct", "penalty", "broken", "damage", "nuksan", "काटो", "जुर्माना", "loss", "toota", "glass"]):
+        amt_match = re.search(r"(\d+)", prompt)
+        penalty_amt = float(amt_match.group(1)) if amt_match else 50.0
+        reason = "broken glass" if ("glass" in prompt or "dish" in prompt) else "damage deduction"
+        res = log_penalty(person=target_person, amount=penalty_amt, reason=reason)
+        mutated = True
+        trace["tool"] = "log_penalty"
+        trace["arguments"] = {"person": target_person, "amount": penalty_amt, "reason": reason}
+        trace["result"] = res
+        return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
+
+    # Intent C: Flatmate / PG Bill Splitter
+    if any(k in prompt for k in ["split", "share with", "roommate", "flatmate", "baato", "बांटो"]):
+        amt_match = re.search(r"(\d+)", prompt)
+        split_amt = float(amt_match.group(1)) if amt_match else None
+        # Extract flatmate name
+        fm_match = re.search(r"(?:with|aur)\s+([a-zA-Z]+)", prompt)
+        split_with_name = fm_match.group(1) if fm_match else "Amit"
+        res = split_bill(person=target_person, split_with=split_with_name, amount=split_amt)
+        trace["tool"] = "split_bill"
+        trace["arguments"] = {"person": target_person, "split_with": split_with_name, "amount": split_amt}
+        trace["result"] = res
+        return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": False, "mcp_trace": trace})
 
     # Intent routing simulation (Supports Hindi + English)
     # 1. Undo

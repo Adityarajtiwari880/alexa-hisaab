@@ -1238,16 +1238,26 @@ def build_ics() -> str:
 
 PAGE_CSS = """
 :root {
-  --bg-dark: #04080c;
-  --panel-bg: rgba(13, 21, 29, 0.78);
-  --panel-border: rgba(0, 210, 255, 0.22);
-  --text-main: #f0f6fa;
-  --text-muted: #8ba2b0;
-  --cyan-glow: #00d2ff;
-  --alexa-blue: #0077ff;
-  --coral-red: #ff5757;
-  --emerald-green: #00e676;
-  --gold-accent: #ffb703;
+  --bg-dark: #070B10;
+  --bg-panel: rgba(14, 22, 33, 0.75);
+  --bg-card: rgba(16, 25, 38, 0.72);
+  --border-glass: rgba(255, 255, 255, 0.09);
+  --border-glass-hover: rgba(0, 202, 255, 0.38);
+  
+  --alexa-cyan: #00CAFF;
+  --alexa-cyan-glow: rgba(0, 202, 255, 0.45);
+  --alexa-blue: #0066FF;
+  --amazon-orange: #FF9900;
+  --amazon-orange-glow: rgba(255, 153, 0, 0.4);
+  --amazon-gold: #FFB700;
+  
+  --text-primary: #FFFFFF;
+  --text-secondary: #A0B5C6;
+  --text-muted: #647B8E;
+  
+  --status-green: #00E676;
+  --status-amber: #FFB703;
+  --status-red: #FF5252;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1255,11 +1265,11 @@ PAGE_CSS = """
 body {
   background: var(--bg-dark);
   background-image: 
-    radial-gradient(circle at 50% 0%, rgba(0, 119, 255, 0.18) 0%, transparent 60%),
-    radial-gradient(circle at 10% 30%, rgba(0, 210, 255, 0.09) 0%, transparent 45%),
-    radial-gradient(circle at 90% 70%, rgba(0, 85, 255, 0.09) 0%, transparent 50%);
+    radial-gradient(circle at 50% -10%, rgba(0, 202, 255, 0.16) 0%, transparent 60%),
+    radial-gradient(circle at 8% 25%, rgba(255, 153, 0, 0.07) 0%, transparent 45%),
+    radial-gradient(circle at 92% 75%, rgba(0, 102, 255, 0.08) 0%, transparent 50%);
   background-attachment: fixed;
-  color: var(--text-main);
+  color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -1267,55 +1277,90 @@ body {
 }
 
 main {
-  max-width: 45rem;
+  max-width: 48rem;
   margin: 0 auto;
-  padding: 2rem 1.25rem 5rem;
+  padding: 2.2rem 1.4rem 5rem;
 }
 
-/* Header Navigation Bar */
+/* ------------------------------------------------------------- Header with Amazon Smile Logo */
 .top-nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 .brand-group {
   display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.brand-wordmark-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  position: relative;
+  user-select: none;
 }
 .brand-title {
-  font-size: 2.15rem;
+  font-size: 2.35rem;
   font-weight: 900;
-  letter-spacing: -0.03em;
-  background: linear-gradient(135deg, #ffffff 40%, #00d2ff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.04em;
+  color: #FFFFFF;
+  line-height: 1;
+  display: flex;
+  align-items: baseline;
 }
-.brand-tag {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  font-weight: 500;
+.brand-alexa-dot {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--alexa-cyan);
+  margin-left: 2px;
+}
+.amazon-smile-svg {
+  width: 128px;
+  height: 24px;
+  margin-top: -3px;
+  margin-left: 2px;
+  filter: drop-shadow(0 2px 8px rgba(255, 153, 0, 0.45));
+}
+.brand-badge-alexa {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(0, 202, 255, 0.12) 0%, rgba(0, 102, 255, 0.06) 100%);
+  border: 1px solid rgba(0, 202, 255, 0.32);
+  color: var(--alexa-cyan);
+  box-shadow: 0 0 16px rgba(0, 202, 255, 0.16);
 }
 .status-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  padding: 0.35rem 0.8rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0.38rem 0.85rem;
   border-radius: 9999px;
   background: rgba(0, 230, 118, 0.08);
-  border: 1px solid rgba(0, 230, 118, 0.25);
-  color: var(--emerald-green);
+  border: 1px solid rgba(0, 230, 118, 0.28);
+  color: var(--status-green);
   letter-spacing: 0.02em;
+  box-shadow: 0 0 12px rgba(0, 230, 118, 0.1);
 }
 .status-pulse {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--emerald-green);
-  box-shadow: 0 0 8px var(--emerald-green);
+  background: var(--status-green);
+  box-shadow: 0 0 8px var(--status-green);
   animation: pulse-dot 2s infinite ease-in-out;
 }
 @keyframes pulse-dot {
@@ -1323,29 +1368,28 @@ main {
   50% { opacity: 1; transform: scale(1.3); }
 }
 
-/* ------------------------------------------------------------- Authentic Echo 3D Bezel Console */
-.alexa-hero-console {
+/* ------------------------------------------------------------- Executive Command Center HUD */
+.executive-hud {
   position: relative;
-  background: var(--panel-bg);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(13, 20, 30, 0.8) 100%);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--border-glass);
   border-radius: 1.6rem;
-  padding: 2.25rem 1.75rem 1.75rem;
-  margin-bottom: 2.5rem;
+  padding: 1.7rem 1.85rem;
+  margin-bottom: 2.2rem;
   box-shadow: 
-    0 24px 60px rgba(0, 0, 0, 0.65),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 0 35px rgba(0, 210, 255, 0.08);
+    0 22px 55px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 35px rgba(255, 153, 0, 0.06);
   overflow: hidden;
 }
-
-.alexa-hero-console::before {
+.executive-hud::before {
   content: "";
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, #00d2ff, #0055ff, #00d2ff, transparent);
+  background: linear-gradient(90deg, transparent, #FF9900, #00CAFF, #FF9900, transparent);
   background-size: 200% auto;
   animation: cyber-shimmer 4s linear infinite;
 }
@@ -1354,7 +1398,178 @@ main {
   100% { background-position: 200% 0; }
 }
 
-/* Nostalgic Alexa 3D Light Ring */
+.hud-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.hud-brand-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+.hud-icon {
+  font-size: 1.65rem;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: rgba(255, 153, 0, 0.12);
+  border: 1px solid rgba(255, 153, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 16px rgba(255, 153, 0, 0.2);
+}
+.hud-subtitle {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--amazon-orange);
+  font-weight: 800;
+}
+.hud-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  margin: 0.1rem 0 0;
+  letter-spacing: -0.01em;
+}
+.hud-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.action-btn-glow {
+  background: linear-gradient(135deg, #FF9900 0%, #FF5500 100%);
+  border: none;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 0.52rem 1.05rem;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(255, 153, 0, 0.38);
+  transition: all 0.2s;
+}
+.action-btn-glow:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 22px rgba(255, 153, 0, 0.55);
+}
+.action-btn-ghost {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #cde4f5;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.52rem 1.05rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.action-btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--alexa-cyan);
+  color: #fff;
+}
+
+.hud-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.15rem;
+}
+.hud-metric-card {
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 1.1rem;
+  padding: 1rem 1.15rem;
+  transition: all 0.25s ease;
+}
+.hud-metric-card:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.45);
+  transform: translateY(-2px);
+}
+.metric-burn {
+  border-color: rgba(255, 153, 0, 0.35);
+  background: linear-gradient(135deg, rgba(255, 153, 0, 0.09) 0%, rgba(0, 0, 0, 0.4) 100%);
+}
+.metric-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+.metric-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.metric-burn .metric-value { color: var(--amazon-orange); }
+.cyan-val { color: var(--alexa-cyan); }
+.emerald-val { color: var(--status-green); }
+.gold-val { color: var(--amazon-gold); }
+.metric-foot {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+.hud-liquidity-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.95rem;
+  background: rgba(0, 230, 118, 0.06);
+  border: 1px solid rgba(0, 230, 118, 0.2);
+  border-radius: 0.85rem;
+  font-size: 0.83rem;
+  color: #d8f5e5;
+}
+.liquidity-badge {
+  font-weight: 800;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--status-green);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------- Authentic Echo 3D Bezel Console */
+.alexa-hero-console {
+  position: relative;
+  background: var(--bg-panel);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid var(--border-glass);
+  border-radius: 1.6rem;
+  padding: 2.2rem 1.8rem 1.8rem;
+  margin-bottom: 2.4rem;
+  box-shadow: 
+    0 24px 60px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 0 35px rgba(0, 202, 255, 0.08);
+  overflow: hidden;
+}
+
+.alexa-hero-console::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #00CAFF, #0055ff, #00CAFF, transparent);
+  background-size: 200% auto;
+  animation: cyber-shimmer 4s linear infinite;
+}
+
 .alexa-ring-stage {
   display: flex;
   flex-direction: column;
@@ -1371,7 +1586,7 @@ main {
   align-items: center;
   justify-content: center;
   transform-style: preserve-3d;
-  transform: rotateX(46deg); /* Authentic 3D Echo Crown perspective */
+  transform: rotateX(46deg);
   transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -1380,10 +1595,14 @@ main {
   width: 225px;
   height: 225px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(0, 210, 255, 0.4) 0%, rgba(0, 119, 255, 0.2) 50%, transparent 70%);
+  background: radial-gradient(circle, rgba(0, 202, 255, 0.4) 0%, rgba(0, 102, 255, 0.2) 50%, transparent 70%);
   filter: blur(20px);
   animation: halo-breathe 3.5s ease-in-out infinite;
   pointer-events: none;
+}
+@keyframes halo-breathe {
+  0%, 100% { transform: scale(0.92); opacity: 0.6; }
+  50% { transform: scale(1.08); opacity: 0.95; }
 }
 
 .alexa-crown-bezel {
@@ -1394,7 +1613,7 @@ main {
   background: radial-gradient(circle, #081118 55%, #152533 70%, #030608 100%);
   box-shadow: 
     0 18px 40px rgba(0, 0, 0, 0.85),
-    0 0 30px rgba(0, 210, 255, 0.28),
+    0 0 30px rgba(0, 202, 255, 0.28),
     inset 0 1px 2px rgba(255, 255, 255, 0.22);
   display: flex;
   align-items: center;
@@ -1411,17 +1630,17 @@ main {
     from 0deg,
     #0044ff 0deg,
     #0088ff 55deg,
-    #00d2ff 110deg,
+    #00CAFF 110deg,
     #00ffff 165deg,
     #ffffff 180deg,
     #00ffff 195deg,
-    #00d2ff 250deg,
+    #00CAFF 250deg,
     #0066ff 305deg,
     #0044ff 360deg
   );
   box-shadow: 
-    0 0 24px #00d2ff,
-    0 0 50px rgba(0, 210, 255, 0.65),
+    0 0 24px #00CAFF,
+    0 0 50px rgba(0, 202, 255, 0.65),
     inset 0 0 16px rgba(0, 255, 255, 0.45);
   display: flex;
   align-items: center;
@@ -1432,309 +1651,363 @@ main {
 
 .alexa-light-ring.listening {
   animation: ring-sweep 1.5s linear infinite, ring-pulse 0.8s ease-in-out infinite alternate !important;
-  box-shadow: 0 0 45px #00ffff, 0 0 90px rgba(0, 210, 255, 0.95), inset 0 0 22px #ffffff !important;
+  box-shadow: 0 0 45px #00ffff, 0 0 90px rgba(0, 202, 255, 0.95), inset 0 0 22px #ffffff !important;
 }
 .alexa-light-ring.thinking {
-  animation: ring-sweep 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
-  box-shadow: 0 0 45px #00a8e8, 0 0 90px rgba(0, 119, 255, 0.85) !important;
+  background: conic-gradient(from 0deg, #00CAFF, #ffffff, #0088ff, #00CAFF) !important;
+  animation: ring-sweep 0.75s linear infinite !important;
+  box-shadow: 0 0 40px #00CAFF, 0 0 75px rgba(0, 202, 255, 0.8) !important;
 }
 .alexa-light-ring.speaking {
-  animation: ring-sweep 2.8s linear infinite, ring-voice-undulate 1.2s ease-in-out infinite !important;
+  background: conic-gradient(from 0deg, #00CAFF 0%, #00ffff 40%, #0088ff 70%, #00CAFF 100%) !important;
+  animation: ring-sweep 3s linear infinite, ring-breathe 1.8s ease-in-out infinite alternate !important;
+  box-shadow: 0 0 32px #00ffff, 0 0 65px rgba(0, 202, 255, 0.85) !important;
 }
 
-@keyframes ring-sweep { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-@keyframes ring-pulse { from { filter: brightness(1.1); } to { filter: brightness(1.5); } }
-@keyframes ring-voice-undulate {
-  0%, 100% { transform: rotate(0deg) scale(1); filter: brightness(1.15); }
-  50% { transform: rotate(180deg) scale(1.03); filter: brightness(1.45); box-shadow: 0 0 38px #00ffff, 0 0 75px rgba(0, 210, 255, 0.85); }
+@keyframes ring-sweep {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
-@keyframes halo-breathe {
-  0%, 100% { opacity: 0.6; transform: scale(0.95); }
-  50% { opacity: 0.95; transform: scale(1.05); }
+@keyframes ring-pulse {
+  0% { transform: scale(0.96); filter: brightness(0.9); }
+  100% { transform: scale(1.04); filter: brightness(1.2); }
+}
+@keyframes ring-breathe {
+  0% { opacity: 0.8; }
+  100% { opacity: 1; }
 }
 
 .alexa-hub-center {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: radial-gradient(circle at 45% 40%, #0d1720 0%, #04080c 70%, #010305 100%);
-  border: 1px solid rgba(0, 210, 255, 0.25);
-  box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.95), 0 0 12px rgba(0, 0, 0, 0.8);
+  background: radial-gradient(circle, #08121a 45%, #030609 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
+  box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.95);
 }
-
 .alexa-pupil-pip {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #00ffff 50%, #0066ff 100%);
-  box-shadow: 0 0 14px #00ffff, 0 0 25px #00d2ff;
-  animation: pupil-breathe 2.5s ease-in-out infinite;
-  transition: all 0.3s;
-}
-@keyframes pupil-breathe {
-  0%, 100% { transform: scale(0.85); opacity: 0.75; }
-  50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 22px #00ffff, 0 0 38px #00d2ff; }
+  background: #00CAFF;
+  box-shadow: 0 0 12px #00CAFF, 0 0 24px rgba(0, 202, 255, 0.8);
+  transition: all 0.3s ease;
 }
 
 .wave-canvas {
+  margin-top: 0.6rem;
   width: 240px;
   height: 36px;
-  margin-top: 0.4rem;
-  opacity: 0.9;
+  border-radius: 9999px;
+  opacity: 0.85;
 }
 
-/* Hands-Free & Live Hearing Banner */
+/* Hands-Free Wake Word Banner */
 .wake-word-banner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(0, 210, 255, 0.08);
-  border: 1px solid rgba(0, 210, 255, 0.25);
-  border-radius: 0.75rem;
-  padding: 0.65rem 1rem;
-  margin-top: 1rem;
-  font-size: 0.88rem;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  margin: 1.2rem auto 0.9rem;
+  max-width: 480px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
 }
 .wake-status-group {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #cbe3eb;
 }
 .btn-wake-toggle {
-  background: #00d2ff;
-  color: #041017;
+  background: rgba(0, 202, 255, 0.15);
+  border: 1px solid rgba(0, 202, 255, 0.4);
+  color: var(--alexa-cyan);
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
   font-weight: 700;
-  border: none;
-  border-radius: 0.5rem;
-  padding: 0.38rem 0.85rem;
   cursor: pointer;
-  font-size: 0.82rem;
   transition: all 0.2s;
 }
-.btn-wake-toggle:hover { opacity: 0.9; }
-
-/* Real-Time Live Transcript HUD */
-.live-transcript-strip {
-  margin-top: 0.6rem;
-  padding: 0.45rem 0.85rem;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px dashed rgba(0, 210, 255, 0.3);
-  border-radius: 0.5rem;
-  font-size: 0.85rem;
-  color: #00ffff;
-  display: none;
-  align-items: center;
-  gap: 0.5rem;
+.btn-wake-toggle:hover {
+  background: var(--alexa-cyan);
+  color: #04080c;
 }
 
-/* Voice Input Controls */
+/* Live Hearing Transcript Strip */
+.live-transcript-strip {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.45rem 1rem;
+  background: rgba(0, 202, 255, 0.1);
+  border: 1px solid rgba(0, 202, 255, 0.35);
+  border-radius: 0.6rem;
+  margin: 0.5rem auto 1rem;
+  max-width: 480px;
+  font-size: 0.85rem;
+  color: var(--alexa-cyan);
+  animation: pulse-dot 1.5s infinite;
+}
+
+/* Voice Input Dock */
 .input-dock {
   display: flex;
   gap: 0.6rem;
-  margin-top: 0.75rem;
+  margin: 1.1rem 0 1.3rem;
 }
 .voice-textbox {
   flex: 1;
-  background: rgba(4, 8, 12, 0.85);
-  border: 1px solid rgba(0, 210, 255, 0.25);
-  border-radius: 0.75rem;
-  padding: 0.8rem 1.1rem;
+  background: rgba(0, 0, 0, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.9rem;
+  padding: 0.85rem 1.25rem;
   color: #fff;
   font-size: 0.95rem;
-  transition: all 0.2s ease;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+  outline: none;
+  transition: all 0.25s;
 }
 .voice-textbox:focus {
-  outline: none;
-  border-color: var(--cyan-glow);
-  box-shadow: 0 0 15px rgba(0, 210, 255, 0.3), inset 0 2px 4px rgba(0,0,0,0.5);
+  border-color: var(--alexa-cyan);
+  box-shadow: 0 0 18px rgba(0, 202, 255, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
-
 .action-btn-primary {
-  background: linear-gradient(135deg, #00d2ff 0%, #0077ff 100%);
-  color: #040c12;
-  font-weight: 700;
+  background: linear-gradient(135deg, #00CAFF 0%, #0066ff 100%);
   border: none;
-  border-radius: 0.75rem;
-  padding: 0 1.25rem;
-  font-size: 0.92rem;
+  color: #fff;
+  font-weight: 800;
+  border-radius: 0.85rem;
+  padding: 0 1.35rem;
   cursor: pointer;
+  box-shadow: 0 4px 18px rgba(0, 202, 255, 0.35);
+  transition: all 0.2s;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  box-shadow: 0 4px 15px rgba(0, 210, 255, 0.3);
-  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  font-size: 0.92rem;
 }
 .action-btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 22px rgba(0, 210, 255, 0.5);
+  box-shadow: 0 6px 24px rgba(0, 202, 255, 0.55);
 }
-.action-btn-primary:active { transform: scale(0.97); }
 
-/* ------------------------------------------------------------- Filterable Feature Showcase Palette */
+/* ------------------------------------------------------------- Decluttered Interactive Palette */
 .feature-showcase-box {
-  margin-top: 1.5rem;
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 1rem;
-  padding: 1.15rem;
+  border-radius: 1.1rem;
+  padding: 1.1rem 1.25rem;
+  margin-top: 1.1rem;
 }
 .palette-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.85rem;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
 }
 .palette-title {
-  font-size: 0.82rem;
+  font-size: 0.76rem;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--cyan-glow);
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
+  color: var(--text-secondary);
 }
 .palette-tabs {
   display: flex;
-  gap: 0.35rem;
+  gap: 0.4rem;
   flex-wrap: wrap;
 }
 .tab-btn {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--text-muted);
-  font-size: 0.78rem;
-  font-weight: 600;
-  padding: 0.25rem 0.65rem;
-  border-radius: 9999px;
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
   cursor: pointer;
   transition: all 0.2s;
 }
-.tab-btn.active, .tab-btn:hover {
-  background: rgba(0, 210, 255, 0.18);
-  border-color: rgba(0, 210, 255, 0.45);
+.tab-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
   color: #fff;
 }
+.tab-btn.active {
+  background: rgba(0, 202, 255, 0.18);
+  border-color: var(--alexa-cyan);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(0, 202, 255, 0.25);
+}
+
 .prompt-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  gap: 0.5rem;
 }
 .prompt-btn {
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  color: #d8ecf5;
-  font-size: 0.82rem;
-  font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #d2e4f0;
+  font-size: 0.8rem;
+  font-weight: 600;
   padding: 0.42rem 0.85rem;
-  border-radius: 9999px;
+  border-radius: 0.65rem;
   cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  transition: all 0.18s;
-  backdrop-filter: blur(8px);
 }
 .prompt-btn:hover {
-  background: rgba(0, 210, 255, 0.14);
-  border-color: rgba(0, 210, 255, 0.4);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--alexa-cyan);
   color: #fff;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(0, 202, 255, 0.25);
 }
-.prompt-btn.hindi-chip {
-  border-color: rgba(255, 183, 3, 0.3);
-  color: #ffe699;
+.hindi-chip {
+  border-color: rgba(255, 153, 0, 0.3);
+  color: #ffd8a8;
 }
-.prompt-btn.hindi-chip:hover {
-  background: rgba(255, 183, 3, 0.15);
-  color: #fff;
+.hindi-chip:hover {
+  border-color: var(--amazon-orange);
+  box-shadow: 0 4px 14px rgba(255, 153, 0, 0.35);
 }
 
-/* Holographic Alexa Spoken Response Bubble */
+/* Alexa Spoken Hologram Bubble */
 .hologram-bubble {
   margin-top: 1.25rem;
-  background: rgba(0, 16, 28, 0.9);
-  border-left: 3px solid var(--cyan-glow);
-  border-radius: 0 0.85rem 0.85rem 0;
-  padding: 0.9rem 1.15rem;
-  font-size: 0.96rem;
-  line-height: 1.5;
-  color: #e3f4fc;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-}
-.bubble-speaker {
-  font-weight: 800;
-  color: var(--cyan-glow);
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-right: 0.4rem;
-}
-
-/* MCP Real-time Inspector Terminal Tray */
-.inspector-tray {
-  margin-top: 1rem;
-  font-size: 0.82rem;
-}
-.inspector-tray summary {
-  color: var(--text-muted);
-  cursor: pointer;
-  user-select: none;
-  font-weight: 600;
+  background: linear-gradient(135deg, rgba(0, 202, 255, 0.09) 0%, rgba(0, 102, 255, 0.04) 100%);
+  border: 1px solid rgba(0, 202, 255, 0.3);
+  border-radius: 1rem;
+  padding: 1rem 1.3rem;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.85rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
-.inspector-tray summary:hover { color: var(--cyan-glow); }
-.inspector-code {
-  background: #020508;
-  border: 1px solid rgba(0, 210, 255, 0.15);
-  border-radius: 0.65rem;
-  padding: 0.85rem;
-  color: #00e676;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.78rem;
-  overflow-x: auto;
-  margin-top: 0.5rem;
+.bubble-speaker {
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  background: var(--alexa-cyan);
+  color: #04080c;
+}
+#speechText {
+  font-size: 0.95rem;
+  color: #fff;
+  font-weight: 500;
   line-height: 1.45;
 }
 
-/* Premium Staff Ledger Cards */
-.cards-container {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-.staff-card {
-  background: var(--panel-bg);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+/* Inspector Tray */
+.inspector-tray {
+  margin-top: 1rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 1.4rem;
-  padding: 1.75rem;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  border-radius: 0.85rem;
+  background: rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+.inspector-tray summary {
+  padding: 0.75rem 1.1rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.inspector-tray summary:hover { color: var(--alexa-cyan); }
+.inspector-code {
+  padding: 0.85rem 1.1rem;
+  font-family: Consolas, monospace;
+  font-size: 0.76rem;
+  color: #8be9fd;
+  white-space: pre-wrap;
+  background: #020609;
+}
+
+/* ------------------------------------------------------------- Category Filter Tabs */
+.ledger-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 2.2rem 0 1.3rem;
+}
+.category-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.cat-pill {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.5rem 1.05rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.cat-pill:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #FFFFFF;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.cat-pill.active {
+  background: linear-gradient(135deg, rgba(0, 202, 255, 0.2) 0%, rgba(0, 102, 255, 0.15) 100%);
+  border-color: var(--alexa-cyan);
+  color: #FFFFFF;
+  box-shadow: 0 0 16px rgba(0, 202, 255, 0.35);
+}
+
+/* ------------------------------------------------------------- Glossy Glassmorphic Cards */
+.staff-card {
   position: relative;
-  transition: border-color 0.25s, transform 0.25s;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.045) 0%, rgba(13, 21, 31, 0.78) 100%);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 1.4rem;
+  padding: 1.5rem 1.65rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 
+    0 16px 40px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
 }
 .staff-card:hover {
-  border-color: rgba(0, 210, 255, 0.3);
-  transform: translateY(-2px);
+  transform: translateY(-3px);
+  border-color: rgba(0, 202, 255, 0.32);
+  box-shadow: 
+    0 24px 55px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 0 25px rgba(0, 202, 255, 0.08);
 }
 .card-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  padding-bottom: 1rem;
-  margin-bottom: 1.25rem;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-bottom: 1.15rem;
+  padding-bottom: 0.95rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 .card-profile {
   display: flex;
@@ -1745,92 +2018,30 @@ main {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #00d2ff, #0055ff);
+  background: linear-gradient(135deg, #00CAFF, #0055ff);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 800;
   font-size: 1.15rem;
   color: #fff;
-  box-shadow: 0 4px 14px rgba(0, 210, 255, 0.35);
+  box-shadow: 0 4px 14px rgba(0, 202, 255, 0.35);
 }
 .staff-names h2 {
-  font-size: 1.35rem;
+  font-size: 1.25rem;
   font-weight: 800;
   letter-spacing: -0.01em;
+  color: #FFFFFF;
 }
 .staff-names p {
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   color: var(--text-muted);
-}
-.month-badge {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.05);
-  padding: 0.3rem 0.75rem;
-  border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-
-/* Service Category Tabs & Add Modal */
-.cat-pill {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #c9e6f5;
-  font-size: 0.83rem;
-  font-weight: 600;
-  padding: 0.45rem 0.95rem;
-  border-radius: 9999px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.cat-pill:hover, .cat-pill.active {
-  background: rgba(0, 210, 255, 0.2);
-  border-color: #00d2ff;
-  color: #fff;
-  box-shadow: 0 0 12px rgba(0, 210, 255, 0.3);
-}
-.neural-badge {
-  display: inline-block;
-  background: rgba(0, 210, 255, 0.15);
-  border: 1px solid rgba(0, 210, 255, 0.4);
-  color: #00d2ff;
-  font-size: 0.74rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 0.2rem 0.55rem;
-  border-radius: 0.35rem;
-  margin-right: 0.5rem;
-}
-.service-modal-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-}
-.service-modal-card {
-  background: #06111e;
-  border: 1px solid rgba(0, 210, 255, 0.35);
-  border-radius: 1.4rem;
-  padding: 1.8rem;
-  max-width: 520px;
-  width: 100%;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 210, 255, 0.2);
 }
 .card-cat-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  font-size: 0.75rem;
+  font-size: 0.74rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1839,16 +2050,28 @@ main {
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #a0d8ef;
-  margin-left: 0.6rem;
+  margin-left: 0.5rem;
+}
+.month-badge {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.3rem 0.75rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Ledger Breakdown Rows */
+/* Ledger Rows */
+.ledger-breakdown {
+  margin: 0.85rem 0 1rem;
+}
 .ledger-row {
   display: flex;
   align-items: baseline;
   gap: 0.6rem;
-  padding: 0.4rem 0;
-  font-size: 0.95rem;
+  padding: 0.38rem 0;
+  font-size: 0.92rem;
 }
 .ledger-label { color: var(--text-muted); }
 .ledger-dotted {
@@ -1858,104 +2081,95 @@ main {
 }
 .ledger-val {
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  color: #fff;
 }
-.val-neg { color: var(--coral-red); }
-.val-pos { color: var(--emerald-green); }
+.val-neg { color: var(--status-red); }
+.val-pos { color: var(--status-green); }
 
-/* Prominent 'To Pay' Block */
 .total-block {
-  margin-top: 1.1rem;
-  padding: 1.1rem;
-  background: linear-gradient(135deg, rgba(0, 210, 255, 0.08) 0%, rgba(0, 119, 255, 0.04) 100%);
-  border: 1px solid rgba(0, 210, 255, 0.22);
-  border-radius: 1rem;
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+  padding: 0.95rem 1.25rem;
+  margin: 1rem 0;
 }
 .total-title {
-  font-size: 1.05rem;
+  font-size: 0.85rem;
   font-weight: 700;
+  color: #cde4f5;
 }
 .total-subtitle {
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   color: var(--text-muted);
-  margin-top: 0.15rem;
 }
 .total-amount {
-  font-size: 1.95rem;
+  font-size: 1.5rem;
   font-weight: 900;
-  color: #ff6b6b;
+  color: #00CAFF;
   letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
 }
 
-/* Habit & Warning Chips */
-.habit-badge {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.9rem;
-  padding: 0.65rem 0.95rem;
-  background: rgba(255, 183, 3, 0.08);
-  border: 1px solid rgba(255, 183, 3, 0.25);
-  border-radius: 0.75rem;
-  font-size: 0.88rem;
-  color: #ffd166;
-  font-weight: 500;
-}
+/* Warning & Habit Badges */
 .warning-badge {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.9rem;
-  padding: 0.65rem 0.95rem;
-  background: rgba(255, 87, 87, 0.08);
-  border: 1px solid rgba(255, 87, 87, 0.28);
+  background: rgba(255, 183, 3, 0.12);
+  border: 1px solid rgba(255, 183, 3, 0.35);
+  color: #ffd166;
+  font-size: 0.82rem;
+  padding: 0.55rem 0.95rem;
   border-radius: 0.75rem;
-  font-size: 0.88rem;
-  color: #ff8585;
-  font-weight: 600;
+  margin-top: 0.6rem;
+}
+.habit-badge {
+  background: rgba(0, 202, 255, 0.1);
+  border: 1px solid rgba(0, 202, 255, 0.3);
+  color: #b8ecff;
+  font-size: 0.82rem;
+  padding: 0.55rem 0.95rem;
+  border-radius: 0.75rem;
+  margin-top: 0.6rem;
 }
 
-/* Card Action Buttons */
+/* Card Actions */
 .card-actions {
   display: flex;
-  gap: 0.65rem;
+  gap: 0.55rem;
   flex-wrap: wrap;
-  margin-top: 1.25rem;
+  margin-top: 1rem;
 }
 .btn-upi {
-  background: linear-gradient(135deg, #ff9900 0%, #ff6600 100%);
-  color: #0b0f14;
-  font-weight: 800;
+  background: linear-gradient(135deg, #FF9900 0%, #FF5500 100%);
   border: none;
+  color: #fff;
+  font-weight: 800;
   border-radius: 0.65rem;
-  padding: 0.7rem 1.15rem;
-  font-size: 0.92rem;
+  padding: 0.65rem 1.15rem;
+  font-size: 0.88rem;
   cursor: pointer;
+  box-shadow: 0 4px 14px rgba(255, 153, 0, 0.35);
+  transition: all 0.2s;
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  box-shadow: 0 4px 16px rgba(255, 153, 0, 0.35);
-  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  gap: 0.4rem;
 }
-.btn-upi:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255, 153, 0, 0.5); }
-.btn-upi:active { transform: scale(0.97); }
-
+.btn-upi:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 153, 0, 0.5);
+}
 .btn-whatsapp {
   background: rgba(37, 211, 102, 0.12);
   border: 1px solid rgba(37, 211, 102, 0.35);
   color: #25d366;
   font-weight: 700;
   border-radius: 0.65rem;
-  padding: 0.7rem 1.15rem;
-  font-size: 0.92rem;
+  padding: 0.65rem 1.15rem;
+  font-size: 0.88rem;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.4rem;
   transition: all 0.2s;
 }
 .btn-whatsapp:hover {
@@ -1965,7 +2179,7 @@ main {
   transform: translateY(-2px);
 }
 
-/* Dynamic UPI Drawer */
+/* UPI Expansion Drawer */
 .upi-expansion-card {
   margin-top: 1.25rem;
   background: #020609;
@@ -1983,8 +2197,8 @@ main {
   to { opacity: 1; transform: translateY(0); }
 }
 .upi-qr-image {
-  width: 140px;
-  height: 140px;
+  width: 135px;
+  height: 135px;
   background: #fff;
   border-radius: 0.75rem;
   padding: 6px;
@@ -2002,7 +2216,30 @@ main {
   border-radius: 0.35rem;
   font-family: monospace;
   margin-top: 0.35rem;
-  color: #00d2ff;
+  color: #00CAFF;
+}
+
+/* Modal Styling */
+.service-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.service-modal-card {
+  background: #09121c;
+  border: 1px solid rgba(0, 202, 255, 0.35);
+  border-radius: 1.4rem;
+  padding: 1.8rem;
+  max-width: 520px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 202, 255, 0.2);
 }
 
 /* Footer Section */
@@ -2011,7 +2248,7 @@ footer {
   padding-top: 1.5rem;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text-muted);
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -2032,7 +2269,7 @@ footer {
 }
 .footer-btn:hover {
   background: rgba(255, 255, 255, 0.1);
-  border-color: #00d2ff;
+  border-color: #00CAFF;
 }
 """
 
@@ -2250,22 +2487,80 @@ def render_page(request: Request) -> str:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Hisaab — Alexa+ Voice Ledger</title>
+  <title>Hisaab — Alexa+ Household Ledger & Amazon Pay Hub</title>
   <style>{PAGE_CSS}</style>
 </head>
 <body>
 <main>
-  <!-- Top Navigation -->
+  <!-- Top Navigation with Amazon-Style Smile Logo -->
   <header class="top-nav">
     <div class="brand-group">
-      <h1 class="brand-title">Hisaab</h1>
-      <span class="brand-tag">Alexa+ Household Ledger</span>
+      <div class="brand-wordmark-wrap">
+        <div class="brand-title">hisaab<span class="brand-alexa-dot">.ai</span></div>
+        <!-- Iconic Amazon Smile Arrow SVG -->
+        <svg class="amazon-smile-svg" viewBox="0 0 130 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M 5 6 C 42 22, 88 22, 118 7" stroke="#FF9900" stroke-width="3.8" stroke-linecap="round" fill="none"/>
+          <path d="M 110 3.5 L 122 7.5 L 114 15.5 C 116.5 11.5, 119 9, 122 7.5 Z" fill="#FF9900"/>
+        </svg>
+      </div>
+      <div class="brand-badge-alexa">
+        <span style="color:#FF9900; font-size:0.9rem;">✦</span> Alexa+ & Amazon Pay Hub
+      </div>
     </div>
     <div class="status-pill">
       <div class="status-pulse"></div>
-      <span>Streamable HTTP /mcp</span>
+      <span>MCP Streamable HTTP Active</span>
     </div>
   </header>
+
+  <!-- Executive Command Center (Burn & Macro Intelligence HUD) -->
+  <section class="executive-hud">
+    <div class="hud-header">
+      <div class="hud-brand-tag">
+        <span class="hud-icon">🔥</span>
+        <div>
+          <div class="hud-subtitle">Amazon Pay & Alexa+ Household Intelligence</div>
+          <h2 class="hud-title">Executive Command Center</h2>
+        </div>
+      </div>
+      <div class="hud-actions">
+        <button class="action-btn-glow" onclick="quickAsk('What is my total household burn this month?')">
+          <span>🔥 Total Monthly Burn</span>
+        </button>
+        <button class="action-btn-ghost" onclick="quickAsk('What is my household summary for the year?')">
+          <span>📊 Annual Insights</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="hud-metrics-grid">
+      <div class="hud-metric-card metric-burn">
+        <div class="metric-label">Total Monthly Burn</div>
+        <div class="metric-value">{SYMBOL}{money(total_burn)}</div>
+        <div class="metric-foot">Combined household outflow</div>
+      </div>
+      <div class="hud-metric-card">
+        <div class="metric-label">Domestic Staff & Supplies</div>
+        <div class="metric-value cyan-val">{SYMBOL}{money(staff_burn)}</div>
+        <div class="metric-foot">Maid, cook, milk, dhobi</div>
+      </div>
+      <div class="hud-metric-card">
+        <div class="metric-label">Fixed Bills & EMIs</div>
+        <div class="metric-value emerald-val">{SYMBOL}{money(fixed_burn)}</div>
+        <div class="metric-foot">Protected by AutoPay</div>
+      </div>
+      <div class="hud-metric-card">
+        <div class="metric-label">Annual YTD Run-Rate</div>
+        <div class="metric-value gold-val">~₹1.2 Lakhs</div>
+        <div class="metric-foot">Ramesh (Best Attd.) • Sunita (May Peak)</div>
+      </div>
+    </div>
+
+    <div class="hud-liquidity-bar">
+      <div class="liquidity-badge">🛡️ Liquidity Safety Buffer</div>
+      <div class="liquidity-text">Maintain at least <b style="color:#00E676;">{SYMBOL}{money(impending_7d + 5000)}</b> liquid in your primary bank account before Friday to prevent AutoPay bounce.</div>
+    </div>
+  </section>
 
   <!-- Nostalgic Alexa 3D Light Ring Console -->
   <section class="alexa-hero-console">
@@ -2287,9 +2582,9 @@ def render_page(request: Request) -> str:
     <div class="wake-word-banner">
       <div class="wake-status-group">
         <span id="wakeStatusIcon">🟢</span>
-        <span id="wakeStatusText"><b>Hands-Free Active</b>: Just say <i>"Alexa..."</i> aloud (or click ring)</span>
+        <span id="wakeStatusText"><b>Hands-Free Active</b>: Just say <i>"Alexa..."</i> aloud (or tap ring)</span>
       </div>
-      <button class="btn-lang-toggle" id="btnLangToggle" onclick="toggleLang()" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.18); color:#00d2ff; padding:0.3rem 0.75rem; border-radius:999px; font-size:0.75rem; cursor:pointer;" title="Click to toggle language">🇮🇳 Hinglish (en-IN)</button>
+      <button class="btn-lang-toggle" id="btnLangToggle" onclick="toggleLang()" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.18); color:#00CAFF; padding:0.3rem 0.75rem; border-radius:999px; font-size:0.75rem; cursor:pointer;" title="Click to toggle language">🇮🇳 Hinglish (en-IN)</button>
       <button class="btn-wake-toggle" id="btnWakeToggle" onclick="toggleHandsFree()">Listening</button>
     </div>
 
@@ -2306,63 +2601,52 @@ def render_page(request: Request) -> str:
       <button class="action-btn-primary" onclick="sendVoicePrompt()">Ask</button>
     </div>
 
-    <!-- Categorized Interactive Feature Showcase Palette -->
+    <!-- Decluttered Interactive Feature Explorer -->
     <div class="feature-showcase-box">
       <div class="palette-header">
-        <div class="palette-title">✨ Interactive Feature Explorer (Click to Try)</div>
+        <div class="palette-title">✨ Curated Voice Commands (Click to Test)</div>
         <div class="palette-tabs">
-          <button class="tab-btn active" onclick="filterFeatures('all', this)">All</button>
+          <button class="tab-btn active" onclick="filterFeatures('top', this)">⭐ Top Actions</button>
+          <button class="tab-btn" onclick="filterFeatures('staff', this)">🧹 Staff & Dhobi</button>
+          <button class="tab-btn" onclick="filterFeatures('pay', this)">💳 Amazon Pay & Bills</button>
+          <button class="tab-btn" onclick="filterFeatures('insights', this)">📊 Analytics</button>
           <button class="tab-btn" onclick="filterFeatures('hindi', this)">🇮🇳 हिंदी / Hinglish</button>
-          <button class="tab-btn" onclick="filterFeatures('balance', this)">💰 Balances</button>
-          <button class="tab-btn" onclick="filterFeatures('pay', this)">💳 Pay & Advances</button>
-          <button class="tab-btn" onclick="filterFeatures('attendance', this)">📅 Attendance</button>
-          <button class="tab-btn" onclick="filterFeatures('staff', this)">👥 Staff</button>
         </div>
       </div>
 
       <div class="prompt-grid" id="promptGrid">
-        <!-- Fixed EMIs, AutoPay & Household Burn Queries -->
-        <button class="prompt-btn" data-cat="all pay" onclick="quickAsk('Any EMIs due this week?')">🔔 Any EMIs due this week?</button>
-        <button class="prompt-btn" data-cat="all pay" onclick="quickAsk('Pay iPhone 16 Pro EMI with Amazon Pay')">⚡ Pay iPhone EMI via Amazon Pay</button>
-        <button class="prompt-btn" data-cat="all balance" onclick="quickAsk('What is my total household burn this month?')">🔥 Total Household Burn this Month</button>
-        <button class="prompt-btn" data-cat="all pay" onclick="quickAsk('Toggle AutoPay for iPhone 16 Pro EMI')">🔄 Toggle Amazon Pay AutoPay</button>
+        <!-- Top Actions (Default View: 5 uncluttered hero chips) -->
+        <button class="prompt-btn" data-cat="top" onclick="quickAsk('Gave 12 clothes to the dhobi today')">🧺 Gave 12 clothes to the dhobi</button>
+        <button class="prompt-btn" data-cat="top" onclick="quickAsk('Deduct 50 rupees from Ramesh for the broken glass')">⚠️ Deduct ₹50 from Ramesh (broken glass)</button>
+        <button class="prompt-btn" data-cat="top" onclick="quickAsk('Split the maid 4000 bill with Amit')">👥 Split maid's ₹4k bill with Amit</button>
+        <button class="prompt-btn" data-cat="top" onclick="quickAsk('Pay iPhone 16 Pro EMI with Amazon Pay')">⚡ Pay iPhone EMI via Amazon Pay</button>
+        <button class="prompt-btn" data-cat="top" onclick="quickAsk('What is my total household burn this month?')">🔥 Total Household Burn this Month</button>
 
-        <!-- Dhobi, Penalty & Flatmate Splitter Features -->
-        <button class="prompt-btn" data-cat="all pay" onclick="quickAsk('Gave 12 clothes to the dhobi today')">🧺 Gave 12 clothes to the dhobi today</button>
-        <button class="prompt-btn" data-cat="all pay" onclick="quickAsk('Deduct 50 rupees from Ramesh for the broken glass')">⚠️ Deduct ₹50 from Ramesh for broken glass</button>
-        <button class="prompt-btn" data-cat="all pay" onclick="quickAsk('Split the maid 4000 bill with Amit')">👥 Split maid's ₹4,000 bill with Amit</button>
-        <!-- Annual Analytics Insights -->
-        <button class="prompt-btn" data-cat="all balance" onclick="quickAsk('What is my household summary for the year?')">📊 Household Summary for the Year</button>
-        <button class="prompt-btn hindi-chip" data-cat="hindi all" onclick="quickAsk('Saal ka kul hisaab batao annual summary')">🗣️ साल भर का कुल हिसाब (Annual Insights)</button>
+        <!-- Staff & Dhobi -->
+        <button class="prompt-btn" data-cat="staff" style="display:none;" onclick="quickAsk('Sunita took a half day today')">📅 Sunita took a half day today</button>
+        <button class="prompt-btn" data-cat="staff" style="display:none;" onclick="quickAsk('Ramesh was absent yesterday')">📅 Ramesh was absent yesterday</button>
+        <button class="prompt-btn" data-cat="staff" style="display:none;" onclick="quickAsk('Give 2000 rupees advance to Sunita')">💳 Give ₹2,000 advance to Sunita</button>
+        <button class="prompt-btn" data-cat="staff" style="display:none;" onclick="quickAsk('List all my household staff')">👥 List all household staff</button>
+        <button class="prompt-btn" data-cat="staff" style="display:none;" onclick="quickAsk('Undo last entry')">↩️ Undo last entry</button>
 
-        <!-- Hindi / Hinglish Queries -->
-        <button class="prompt-btn hindi-chip" data-cat="hindi all" onclick="quickAsk('Sunita didi ka hisaab kitna hai?')">🗣️ सुनीता का हिसाब कितना है?</button>
-        <button class="prompt-btn hindi-chip" data-cat="hindi all" onclick="quickAsk('Ghar ka kul hisaab batao')">🗣️ कुल घर का हिसाब बताओ</button>
-        <button class="prompt-btn hindi-chip" data-cat="hindi all" onclick="quickAsk('Sunita ko 2000 rupaye advance diya')">🗣️ सुनीता को ₹2,000 एडवांस दिया</button>
-        <button class="prompt-btn hindi-chip" data-cat="hindi all" onclick="quickAsk('Ramesh aaj aadhi chhutti par tha')">🗣️ रमेश की आधी छुट्टी (Half Day)</button>
-        <button class="prompt-btn hindi-chip" data-cat="hindi all" onclick="quickAsk('Raju driver ka hisaab Amazon Pay se karo')">🗣️ राजू ड्राइवर का हिसाब Amazon Pay से करो</button>
-        <button class="prompt-btn hindi-chip" data-cat="hindi all" onclick="quickAsk('Pichhla hisaab wapas lo undo karo')">🗣️ पिछला हिसाब वापस लो (Undo)</button>
+        <!-- Amazon Pay & Fixed Bills -->
+        <button class="prompt-btn" data-cat="pay" style="display:none;" onclick="quickAsk('Any EMIs due this week?')">🔔 Any EMIs due this week?</button>
+        <button class="prompt-btn" data-cat="pay" style="display:none;" onclick="quickAsk('Pay iPhone 16 Pro EMI with Amazon Pay')">⚡ Pay iPhone EMI on Amazon Pay</button>
+        <button class="prompt-btn" data-cat="pay" style="display:none;" onclick="quickAsk('Toggle AutoPay for iPhone 16 Pro EMI')">🔄 Toggle Amazon Pay AutoPay</button>
+        <button class="prompt-btn" data-cat="pay" style="display:none;" onclick="quickAsk('Pay Ramesh salary with Amazon Pay')">💳 Settle Ramesh with Amazon Pay</button>
 
-        <!-- Balance Queries -->
-        <button class="prompt-btn" data-cat="balance all" onclick="quickAsk('How much do I owe Sunita?')">🎙️ How much do I owe Sunita?</button>
-        <button class="prompt-btn" data-cat="balance all" onclick="quickAsk('What is my total household balance for October?')">🎙️ Total Household Hisaab</button>
-        <button class="prompt-btn" data-cat="balance all" onclick="quickAsk('How much do I owe Ramesh cook?')">🎙️ How much do I owe Ramesh (Cook)?</button>
-        <button class="prompt-btn" data-cat="balance all" onclick="quickAsk('How much do I owe Raju driver?')">🎙️ How much do I owe Raju (Driver)?</button>
+        <!-- Analytics & Insights -->
+        <button class="prompt-btn" data-cat="insights" style="display:none;" onclick="quickAsk('What is my household summary for the year?')">📊 Household Summary for the Year</button>
+        <button class="prompt-btn" data-cat="insights" style="display:none;" onclick="quickAsk('What is my total household burn this month?')">🔥 Total Household Burn this Month</button>
+        <button class="prompt-btn" data-cat="insights" style="display:none;" onclick="quickAsk('What is my total household help balance for October?')">💰 Total Household Staff Balance</button>
 
-        <!-- Pay & Advances -->
-        <button class="prompt-btn" data-cat="pay all" onclick="quickAsk('Pay Sunita salary with Amazon Pay')">💳 Pay Sunita with Amazon Pay</button>
-        <button class="prompt-btn" data-cat="pay all" onclick="quickAsk('Give 2000 rupees advance to Sunita')">💳 Give 2000 advance to Sunita</button>
-        <button class="prompt-btn" data-cat="pay all" onclick="quickAsk('Pay Ramesh salary with Amazon Pay')">💳 Settle Ramesh with Amazon Pay</button>
-        <button class="prompt-btn" data-cat="pay all" onclick="quickAsk('Give 1000 rupees advance to Ramesh')">💳 Give 1000 advance to Ramesh</button>
-
-        <!-- Attendance -->
-        <button class="prompt-btn" data-cat="attendance all" onclick="quickAsk('Sunita took a half day today')">📅 Sunita took half day today</button>
-        <button class="prompt-btn" data-cat="attendance all" onclick="quickAsk('Ramesh was absent yesterday')">📅 Ramesh was absent yesterday</button>
-        <button class="prompt-btn" data-cat="attendance all" onclick="quickAsk('Sunita was actually present today')">📅 Correct: Sunita was present</button>
-        <button class="prompt-btn" data-cat="attendance all" onclick="quickAsk('Undo last entry')">↩️ Undo last entry</button>
-
-        <!-- Staff Management -->
-        <button class="prompt-btn" data-cat="staff all" onclick="quickAsk('List all my household staff')">👥 List all my household staff</button>
+        <!-- Hindi / Hinglish -->
+        <button class="prompt-btn hindi-chip" data-cat="hindi" style="display:none;" onclick="quickAsk('Ghar ka kul hisaab batao')">🗣️ कुल घर का हिसाब बताओ</button>
+        <button class="prompt-btn hindi-chip" data-cat="hindi" style="display:none;" onclick="quickAsk('Sunita didi ka hisaab kitna hai?')">🗣️ सुनीता का हिसाब कितना है?</button>
+        <button class="prompt-btn hindi-chip" data-cat="hindi" style="display:none;" onclick="quickAsk('Sunita ko 2000 rupaye advance diya')">🗣️ सुनीता को ₹2,000 एडवांस दिया</button>
+        <button class="prompt-btn hindi-chip" data-cat="hindi" style="display:none;" onclick="quickAsk('Ramesh aaj aadhi chhutti par tha')">🗣️ रमेश की आधी छुट्टी (Half Day)</button>
+        <button class="prompt-btn hindi-chip" data-cat="hindi" style="display:none;" onclick="quickAsk('Saal ka kul hisaab batao annual summary')">🗣️ साल भर का कुल हिसाब (Annual Insights)</button>
+        <button class="prompt-btn hindi-chip" data-cat="hindi" style="display:none;" onclick="quickAsk('Pichhla hisaab wapas lo undo karo')">🗣️ पिछला हिसाब वापस लो (Undo)</button>
       </div>
     </div>
 
@@ -2380,123 +2664,64 @@ def render_page(request: Request) -> str:
     </details>
   </section>
 
-
-    <!-- Annual Analytics KPI Card -->
-  <div class="staff-card" style="margin-top:1.5rem; background:linear-gradient(135deg, rgba(0, 210, 255, 0.08) 0%, rgba(0, 85, 255, 0.05) 100%); border:1px solid rgba(0, 210, 255, 0.28); padding:1.25rem 1.6rem;">
-    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
-      <div style="display:flex; align-items:center; gap:0.9rem;">
-        <div style="font-size:2rem; background:rgba(0,210,255,0.15); width:50px; height:50px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:1px solid rgba(0,210,255,0.4);">📊</div>
-        <div>
-          <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--cyan-glow); font-weight:700;">2026 Annual Household Intelligence</div>
-          <h3 style="margin:0.15rem 0 0; font-size:1.35rem; color:#fff; font-weight:800;">Yearly Analytics Engine</h3>
-        </div>
-      </div>
-      <div style="display:flex; gap:1.2rem; flex-wrap:wrap; align-items:center;">
-        <div style="text-align:right;">
-          <div style="font-size:0.75rem; color:var(--text-muted);">Annual YTD Spend</div>
-          <b style="font-size:1.15rem; color:#00e676;">~₹1.2 Lakhs</b>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:0.75rem; color:var(--text-muted);">Attendance Champion</div>
-          <b style="font-size:1.05rem; color:#00d2ff;">Ramesh (Cook)</b>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:0.75rem; color:var(--text-muted);">Peak Leaves</div>
-          <b style="font-size:1.05rem; color:#ffb703;">Sunita (May)</b>
-        </div>
-        <button class="action-btn-primary" onclick="quickAsk('What is my household summary for the year?')" style="padding:0.5rem 1rem; font-size:0.85rem; border-radius:999px;">🎙️ Ask Annual Summary</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Total Household Burn & Liquidity Safety Buffer Banner -->
-  <div class="staff-card" style="margin-top:1.2rem; background:linear-gradient(135deg, rgba(255, 153, 0, 0.08) 0%, rgba(0, 210, 255, 0.06) 100%); border:1px solid rgba(255, 153, 0, 0.35); padding:1.25rem 1.6rem;">
-    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
-      <div style="display:flex; align-items:center; gap:0.9rem;">
-        <div style="font-size:2rem; background:rgba(255,153,0,0.15); width:50px; height:50px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:1px solid rgba(255,153,0,0.4);">🔥</div>
-        <div>
-          <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.06em; color:#ff9900; font-weight:700;">Amazon Pay & Alexa+ Household Intelligence</div>
-          <h3 style="margin:0.15rem 0 0; font-size:1.35rem; color:#fff; font-weight:800;">Total Household Monthly Burn</h3>
-        </div>
-      </div>
-      <div style="display:flex; gap:1.2rem; flex-wrap:wrap; align-items:center;">
-        <div style="text-align:right;">
-          <div style="font-size:0.75rem; color:var(--text-muted);">Total Monthly Burn</div>
-          <b style="font-size:1.2rem; color:#ff9900;">{SYMBOL}{money(total_burn)}</b>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:0.75rem; color:var(--text-muted);">Staff & Daily Help</div>
-          <b style="font-size:1.05rem; color:#00d2ff;">{SYMBOL}{money(staff_burn)}</b>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:0.75rem; color:var(--text-muted);">Fixed EMIs & Bills</div>
-          <b style="font-size:1.05rem; color:#00e676;">{SYMBOL}{money(fixed_burn)}</b>
-        </div>
-        <button class="action-btn-primary" onclick="quickAsk('What is my total household burn this month?')" style="padding:0.5rem 1rem; font-size:0.85rem; border-radius:999px; background:linear-gradient(135deg, #ff9900 0%, #ff5500 100%);">🔥 Ask Total Burn</button>
-      </div>
-    </div>
-    <div style="margin-top:0.8rem; padding-top:0.75rem; border-top:1px solid rgba(255,255,255,0.08); font-size:0.85rem; color:#c9e6f5; display:flex; align-items:center; gap:0.5rem;">
-      <span>🛡️ <b>Liquidity Safety Buffer:</b> Maintain at least <b style="color:#00e676;">{SYMBOL}{money(impending_7d + 5000)}</b> liquid before Friday to prevent AutoPay e-mandate bounce.</span>
-    </div>
-  </div>
-
   <!-- Category Filter Bar & Add Service Action -->
-  <div class="ledger-header-bar" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin:1.8rem 0 1.2rem;">
-    <div class="category-tabs" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+  <div class="ledger-header-bar">
+    <div class="category-tabs">
       <button class="cat-pill active" onclick="filterServiceCategory('all', this)">⚡ All Services & Bills</button>
       <button class="cat-pill" onclick="filterServiceCategory('bills', this)">💳 Bills & EMIs (Amazon Pay)</button>
       <button class="cat-pill" onclick="filterServiceCategory('staff', this)">🧹 Domestic Staff</button>
       <button class="cat-pill" onclick="filterServiceCategory('milk', this)">🥛 Milk & Dairy</button>
       <button class="cat-pill" onclick="filterServiceCategory('newspaper', this)">📰 Newspaper</button>
-      <button class="cat-pill" onclick="filterServiceCategory('utility', this)">💧 Water & Supplies</button>
+      <button class="cat-pill" onclick="filterServiceCategory('utility', this)">💧 Water Supplies</button>
     </div>
-    <button class="action-btn-primary" onclick="toggleAddServiceModal()" style="padding:0.55rem 1.15rem; font-size:0.86rem; border-radius:999px;">➕ Add Service / Supply / Staff</button>
+    <button class="action-btn-primary" onclick="toggleAddServiceModal()" style="padding:0.55rem 1.15rem; font-size:0.86rem; border-radius:999px;">➕ Add Service / EMI</button>
   </div>
 
   <!-- Add Service / Column Modal -->
   <div id="addServiceModal" class="service-modal-overlay" style="display:none;">
     <div class="service-modal-card">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.2rem; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:0.75rem;">
-        <h3 style="margin:0; font-size:1.2rem; color:#fff;">➕ Add Household Service or Subscription</h3>
+        <h3 style="margin:0; font-size:1.2rem; color:#fff;">➕ Add Household Service or Obligation</h3>
         <button onclick="toggleAddServiceModal()" style="background:none; border:none; color:#888; font-size:1.4rem; cursor:pointer;">&times;</button>
       </div>
       <div style="display:flex; flex-direction:column; gap:0.85rem;">
-        <label style="font-size:0.85rem; color:#cbe3f0;">Service / Provider Name:
-          <input type="text" id="newServName" placeholder="e.g. Country Delight Milk, Dainik Bhaskar, Ramlal Mali" class="voice-textbox" style="margin-top:0.35rem; width:100%; box-sizing:border-box;" />
+        <label style="font-size:0.85rem; color:#cbe3f0;">Name:
+          <input type="text" id="newServName" placeholder="e.g. Country Delight Milk, iPhone EMI, Ramlal Mali" class="voice-textbox" style="margin-top:0.35rem; width:100%; box-sizing:border-box;" />
         </label>
         <label style="font-size:0.85rem; color:#cbe3f0;">Category:
           <select id="newServCategory" class="voice-textbox" style="margin-top:0.35rem; width:100%; box-sizing:border-box;">
             <option value="staff">🧹 Domestic Staff (Maid, Cook, Driver)</option>
+            <option value="bills">💳 Fixed Bill / Loan EMI (Amazon Pay)</option>
             <option value="milk">🥛 Daily Milk & Dairy Supply</option>
-            <option value="newspaper">📰 Newspaper & Magazine Subscription</option>
-            <option value="utility">💧 Water Cans & Groceries</option>
-            <option value="other">🧺 Laundry & Other Services</option>
+            <option value="newspaper">📰 Newspaper & Magazine</option>
+            <option value="utility">💧 Water Cans & Supplies</option>
           </select>
         </label>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.8rem;">
-          <label style="font-size:0.85rem; color:#cbe3f0;">Rate / Price (₹):
+          <label style="font-size:0.85rem; color:#cbe3f0;">Rate / Amount (₹):
             <input type="number" id="newServRate" placeholder="e.g. 2800" class="voice-textbox" style="margin-top:0.35rem; width:100%; box-sizing:border-box;" />
           </label>
-          <label style="font-size:0.85rem; color:#cbe3f0;">Billing Cycle:
+          <label style="font-size:0.85rem; color:#cbe3f0;">Cycle / Unit:
             <select id="newServUnit" class="voice-textbox" style="margin-top:0.35rem; width:100%; box-sizing:border-box;">
               <option value="month">Per Month</option>
               <option value="day">Per Day / Unit</option>
+              <option value="piece">Per Piece (Dhobi)</option>
             </select>
           </label>
         </div>
         <label style="font-size:0.85rem; color:#cbe3f0;">Schedule / Item Details:
-          <input type="text" id="newServDetail" placeholder="e.g. 2 Litres cow milk daily at 6:30 AM" class="voice-textbox" style="margin-top:0.35rem; width:100%; box-sizing:border-box;" />
+          <input type="text" id="newServDetail" placeholder="e.g. 2 Litres daily or Due on 5th via AutoPay" class="voice-textbox" style="margin-top:0.35rem; width:100%; box-sizing:border-box;" />
         </label>
-        <label style="font-size:0.85rem; color:#cbe3f0;">Weekly Off:
+        <label style="font-size:0.85rem; color:#cbe3f0;">Weekly Off / Day:
           <select id="newServOff" class="voice-textbox" style="margin-top:0.35rem; width:100%; box-sizing:border-box;">
-            <option value="none">No Off Days (Daily Delivery / 7 Days)</option>
+            <option value="none">No Off Days (Daily / 7 Days)</option>
             <option value="sunday">Sunday Off</option>
             <option value="monday">Monday Off</option>
             <option value="saturday">Saturday Off</option>
           </select>
         </label>
         <label style="font-size:0.85rem; color:#cbe3f0;">UPI ID (for 1-tap Amazon Pay / UPI):
-          <input type="text" id="newServUpi" placeholder="e.g. vendor@upi" class="voice-textbox" style="margin-top:0.35rem; width:100%; box-sizing:border-box;" />
+          <input type="text" id="newServUpi" placeholder="e.g. amazonpay@apl or helper@upi" class="voice-textbox" style="margin-top:0.35rem; width:100%; box-sizing:border-box;" />
         </label>
         <div style="display:flex; justify-content:flex-end; gap:0.8rem; margin-top:1.2rem;">
           <button class="prompt-btn" onclick="toggleAddServiceModal()">Cancel</button>

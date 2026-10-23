@@ -70,23 +70,22 @@ Hisaab exposes **19 FastMCP tools** to the Alexa+ agentic runtime:
 | **1** | `set_up_person` | `name`, `pay_amount`, `pay_unit`, `weekly_off`, `upi_id` | *"Alexa, set up Sunita at 9000 rupees a month with Sunday off."* |
 | **2** | `log_visit` | `person`, `status` (`absent`, `half_day`, `present`), `day` | *"Alexa, Sunita took a half day today."* |
 | **3** | `log_absences` | `person`, `dates` (`list[str]`), `note` | *"Alexa, record Sunita absent on October 5th, 12th, and 19th."* |
-| **4** | `give_advance` | `person`, `amount`, `day` | *"Alexa, give 2000 rupees advance to Sunita."* |
-| **5** | `record_payment` | `person`, `amount`, `kind` (`bonus`, `payment`), `day` | *"Alexa, gave 500 rupees bonus to Ramesh."* |
-| **6** | `pay_salary` | `person`, `amount`, `payment_mode` (`amazon_pay`, `upi`) | *"Alexa, pay Sunita's salary with Amazon Pay."* |
-| **7** | `month_hisaab` | `person`, `month` | *"Alexa, how much do I owe Sunita this month?"* |
-| **8** | `household_hisaab` | `month` | *"Alexa, what is my total household help balance for October?"* |
-| **9** | `list_people` | None | *"Alexa, list my household staff."* |
-| **10** | `undo_last` | None | *"Alexa, undo last Hisaab entry."* |
-| **11** | `annual_insights` | `year` | *"Alexa, what's my household summary for the year?"* |
-| **12** | `log_pieces` | `person`, `count`, `rate_per_piece` | *"Alexa, gave 12 clothes to the dhobi today."* |
-| **13** | `log_penalty` | `person`, `amount`, `reason` | *"Alexa, deduct 50 rupees from Ramesh for the broken glass."* |
-| **14** | `split_bill` | `person`, `split_with`, `amount` | *"Alexa, split the maid's 4,000 bill with Amit."* |
-| **15** | `list_commitments` | `month` | *"Alexa, list my fixed bills and EMIs."* |
-| **16** | `add_commitment` | `name`, `amount`, `due_day`, `category`, `autopay` | *"Alexa, add iPhone 16 Pro EMI of 4200 due on the 5th."* |
-| **17** | `pay_commitment_amazon_pay` | `name`, `month` | *"Alexa, pay iPhone EMI on Amazon Pay."* |
-| **18** | `toggle_autopay` | `name`, `enable` | *"Alexa, toggle AutoPay for iPhone EMI on Amazon Pay."* |
-| **19** | `total_household_burn` | `month` | *"Alexa, what is my total household burn this month?"* |
-| **20** | `upcoming_reminders` | `days_ahead` | *"Alexa, any EMIs due this week?"* |
+| **4** | `log_payment` | `person`, `amount`, `kind` (`advance`, `salary`, `bonus`), `day` | *"Alexa, give 2000 rupees advance to Sunita."* |
+| **5** | `pay_salary` | `person`, `amount`, `payment_mode` (`amazon_pay`, `upi`) | *"Alexa, pay Sunita's salary with Amazon Pay."* |
+| **6** | `month_hisaab` | `person`, `month` | *"Alexa, how much do I owe Sunita this month?"* |
+| **7** | `household_hisaab` | `month` | *"Alexa, what is my total household help balance for October?"* |
+| **8** | `list_people` | None | *"Alexa, list my household staff."* |
+| **9** | `undo_last` | None | *"Alexa, undo last Hisaab entry."* |
+| **10** | `annual_insights` | `year` | *"Alexa, what's my household summary for the year?"* |
+| **11** | `log_pieces` | `person`, `count`, `rate_per_piece` | *"Alexa, gave 12 clothes to the dhobi today."* |
+| **12** | `log_penalty` | `person`, `amount`, `reason` | *"Alexa, deduct 50 rupees from Ramesh for the broken glass."* |
+| **13** | `split_bill` | `person`, `split_with`, `amount` | *"Alexa, split the maid's 4,000 bill with Amit."* |
+| **14** | `list_commitments` | `month` | *"Alexa, list my fixed bills and EMIs."* |
+| **15** | `add_commitment` | `name`, `amount`, `due_day`, `category`, `autopay` | *"Alexa, add iPhone 16 Pro EMI of 4200 due on the 5th."* |
+| **16** | `pay_commitment_amazon_pay` | `name`, `month` | *"Alexa, pay iPhone EMI on Amazon Pay."* |
+| **17** | `toggle_autopay` | `name`, `enable` | *"Alexa, toggle AutoPay for iPhone EMI on Amazon Pay."* |
+| **18** | `total_household_burn` | `month` | *"Alexa, what is my total household burn this month?"* |
+| **19** | `upcoming_reminders` | `days_ahead` | *"Alexa, any EMIs due this week?"* |
 
 ---
 
@@ -98,7 +97,7 @@ Hisaab exposes **19 FastMCP tools** to the Alexa+ agentic runtime:
 
 ### 2. Installation
 ```bash
-git clone https://github.com/adityarajtiwari/alexa-hisaab.git
+git clone https://github.com/Adityarajtiwari880/alexa-hisaab.git
 cd alexa-hisaab
 pip install -r requirements.txt
 ```

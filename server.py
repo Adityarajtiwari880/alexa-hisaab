@@ -3,12 +3,12 @@ Hisaab: A voice-first ledger for household help, served as an MCP server for Ale
 Production-ready build for the Amazon Developer Hackathon (Build, Ship, Shape).
 Supports:
 - Model Context Protocol (MCP) Streamable HTTP Transport (spec 2025-11-25+)
-- Hands-Free Ambient Wake Word ("Alexa") with Authentic Dual-Tone Chime
-- Nostalgic Alexa Light Ring in Modern 3D Isometric Format
-- Rich Multi-Staff Household Database (Maid, Cook, Driver, Milkman)
+- Authentic Echo Show 3D Light Ring with Synthesized Dual-Bell Wake Chime
+- Robust Speech Recognition with Real-Time "Live Hearing" Transcription HUD
+- Full Hindi & Hinglish Context (Natural voice comprehension & bilingual WhatsApp slips)
+- Interactive Feature Showcase (Filterable command palette across 6 categories)
+- Multi-Staff Ecosystem (Sunita the Maid, Ramesh the Cook, Raju the Driver, Anil the Milkman)
 - 1-Tap Amazon Pay / UPI Settlement with Dynamic QR Code Generation
-- Present-by-default pro-rata wage calculations & 8-week habit pattern recognition
-- Multi-modal output: Spoken audio, HTML5 Cards, WhatsApp Slip, and iCal feed
 """
 
 import calendar
@@ -47,7 +47,8 @@ mcp = FastMCP(
     instructions=(
         "Hisaab keeps household accounts for domestic staff paid by attendance: maid, cook, "
         "driver, milkman, tutor. Staff count as present unless told otherwise. Keep replies "
-        "concise and natural for voice synthesis. Always pass exact dates as YYYY-MM-DD."
+        "concise and natural for voice synthesis. Supports English, Hindi, and Hinglish. "
+        "Always pass exact dates as YYYY-MM-DD."
     ),
     host=os.environ.get("HOST", "0.0.0.0"),
     port=int(os.environ.get("PORT", "8000")),
@@ -102,6 +103,9 @@ def db():
 
 def ensure_seed_data():
     """Populates a rich household staff ecosystem if database is sparse."""
+    db_path = os.environ.get("HISAAB_DB", "hisaab.db")
+    if "test" in db_path:
+        return
     with db() as conn:
         count = conn.execute("SELECT count(*) as cnt FROM people").fetchone()["cnt"]
         if count >= 3:
@@ -114,7 +118,6 @@ def ensure_seed_data():
             ("Sunita", 9000.0, "month", 6, 1.0, 1, "sunita@apl")
         )
         p_sunita = conn.execute("SELECT id FROM people WHERE name='Sunita'").fetchone()["id"]
-        # Absences on Mondays in Oct
         for d in ["2026-10-05", "2026-10-12", "2026-10-19"]:
             conn.execute("INSERT INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
                          (p_sunita, d, "absent", 0, datetime.now(TZ).isoformat()))
@@ -155,7 +158,6 @@ def ensure_seed_data():
         )
 
 
-# Ensure seed data is populated
 ensure_seed_data()
 
 
@@ -176,9 +178,9 @@ def spoken(x: float) -> str:
 def parse_day(text: Optional[str]) -> date:
     t = (text or "").strip().lower()
     now = today()
-    if t in ("", "today", "now"):
+    if t in ("", "today", "now", "aaj"):
         return now
-    if t == "yesterday":
+    if t in ("yesterday", "kal", "beeta kal"):
         return now - timedelta(days=1)
     try:
         d = date.fromisoformat(t)
@@ -192,9 +194,9 @@ def parse_day(text: Optional[str]) -> date:
 def parse_month(text: Optional[str]) -> tuple:
     t = (text or "").strip().lower()
     now = today()
-    if t in ("", "this month", "current", "now"):
+    if t in ("", "this month", "current", "now", "is mahine", "iss mahine", "is month"):
         return now.year, now.month
-    if t in ("last month", "previous", "previous month"):
+    if t in ("last month", "previous", "previous month", "pichle mahine"):
         first = now.replace(day=1)
         prev = first - timedelta(days=1)
         return prev.year, prev.month
@@ -213,7 +215,7 @@ def parse_month(text: Optional[str]) -> tuple:
 
 def parse_weekday(text: str) -> int:
     t = (text or "").strip().lower()
-    if t in ("none", "no", "never", ""):
+    if t in ("none", "no", "never", "", "koi nahi"):
         return -1
     for i, name in enumerate(WEEKDAYS):
         if name.startswith(t[:3]) and t[:3]:
@@ -310,7 +312,7 @@ def compute_month(conn, person: sqlite3.Row, year: int, month: int) -> dict:
     limit = person["rate"] * person["advance_limit_pct"] / 100
     warn = (person["unit"] == "month" and advances > limit)
 
-    upi_id = person["upi_id"] if ("upi_id" in person.keys() and person["upi_id"]) else "sunita@apl"
+    upi_id = person["upi_id"] if ("upi_id" in person.keys() and person["upi_id"]) else f"{person['name'].lower()}@apl"
     balance_int = int(round(max(0.0, balance)))
     upi_memo = f"Salary_{month_label(year, month).replace(' ', '_')}"
     upi_url = f"upi://pay?pa={urllib.parse.quote(upi_id)}&pn={urllib.parse.quote(person['name'])}&am={balance_int}&cu=INR&tn={urllib.parse.quote(upi_memo)}"
@@ -377,23 +379,23 @@ def summary_text(person, m: dict, assumption: bool = True) -> str:
 
 def slip_text(person, m: dict) -> str:
     lines = [
-        f"📋 Salary slip: {person['name']}, {month_label(m['year'], m['month'])}",
-        f"Base Pay: {SYMBOL}{money(m['full_pay'])}",
+        f"📋 सैलरी स्लिप / Salary Slip: {person['name']}, {month_label(m['year'], m['month'])}",
+        f"• मूल वेतन (Base Pay): {SYMBOL}{money(m['full_pay'])}",
     ]
     if m["deduction"]:
         lines.append(
-            f"Absent: {m['absent_days'] + 0.5 * m['half_days']:g} day(s), "
-            f"{m['paid_leaves']:g} paid leave. Deduction: {SYMBOL}{money(m['deduction'])}"
+            f"• अनुपस्थिति कटौती (Deduction: {m['absent_days'] + 0.5 * m['half_days']:g} days, {m['paid_leaves']:g} paid leave): -{SYMBOL}{money(m['deduction'])}"
         )
     if m["bonus"]:
-        lines.append(f"Bonus: {SYMBOL}{money(m['bonus'])}")
+        lines.append(f"• बोनस (Bonus): +{SYMBOL}{money(m['bonus'])}")
     if m["advances"]:
-        lines.append(f"Advance taken: {SYMBOL}{money(m['advances'])}")
+        lines.append(f"• दिया गया एडवांस (Advance Taken): -{SYMBOL}{money(m['advances'])}")
     if m["salary_paid"]:
-        lines.append(f"Already paid: {SYMBOL}{money(m['salary_paid'])}")
-    lines.append(f"Balance to pay: {SYMBOL}{money(m['balance'])}")
+        lines.append(f"• पूर्व भुगतान (Already Paid): -{SYMBOL}{money(m['salary_paid'])}")
+    lines.append(f"• कुल देय राशि (Balance to Pay): {SYMBOL}{money(m['balance'])}")
     if m["upi_id"]:
-        lines.append(f"Amazon Pay / UPI Handle: {m['upi_id']}")
+        lines.append(f"• अमेज़न पे / UPI Handle: {m['upi_id']}")
+    lines.append("\n(Hisaab voice-first household ledger for Alexa+)")
     return "\n".join(lines)
 
 
@@ -443,7 +445,7 @@ def set_up_person(
 def log_visit(person: str = "", status: str = "absent", day: str = "", note: str = "") -> dict:
     """Record an attendance exception: 'absent', 'half_day', 'late', or 'present' to correct an error."""
     st = (status or "absent").strip().lower().replace(" ", "_").replace("-", "_")
-    st = {"absence": "absent", "halfday": "half_day", "half": "half_day", "came": "present"}.get(st, st)
+    st = {"absence": "absent", "halfday": "half_day", "half": "half_day", "came": "present", "aadhi_chhutti": "half_day", "chhutti": "absent"}.get(st, st)
     if st not in ("absent", "half_day", "late", "present"):
         raise ValueError("Status can be absent, half day, late, or present.")
     d = parse_day(day)
@@ -674,14 +676,15 @@ def build_ics() -> str:
 PAGE_CSS = """
 :root {
   --bg-dark: #04080c;
-  --panel-bg: rgba(13, 21, 29, 0.75);
-  --panel-border: rgba(0, 210, 255, 0.2);
+  --panel-bg: rgba(13, 21, 29, 0.78);
+  --panel-border: rgba(0, 210, 255, 0.22);
   --text-main: #f0f6fa;
   --text-muted: #8ba2b0;
   --cyan-glow: #00d2ff;
   --alexa-blue: #0077ff;
   --coral-red: #ff5757;
   --emerald-green: #00e676;
+  --gold-accent: #ffb703;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -689,9 +692,9 @@ PAGE_CSS = """
 body {
   background: var(--bg-dark);
   background-image: 
-    radial-gradient(circle at 50% 0%, rgba(0, 119, 255, 0.16) 0%, transparent 60%),
-    radial-gradient(circle at 15% 35%, rgba(0, 210, 255, 0.08) 0%, transparent 45%),
-    radial-gradient(circle at 85% 70%, rgba(0, 85, 255, 0.08) 0%, transparent 50%);
+    radial-gradient(circle at 50% 0%, rgba(0, 119, 255, 0.18) 0%, transparent 60%),
+    radial-gradient(circle at 10% 30%, rgba(0, 210, 255, 0.09) 0%, transparent 45%),
+    radial-gradient(circle at 90% 70%, rgba(0, 85, 255, 0.09) 0%, transparent 50%);
   background-attachment: fixed;
   color: var(--text-main);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -701,7 +704,7 @@ body {
 }
 
 main {
-  max-width: 44rem;
+  max-width: 45rem;
   margin: 0 auto;
   padding: 2rem 1.25rem 5rem;
 }
@@ -719,7 +722,7 @@ main {
   gap: 0.75rem;
 }
 .brand-title {
-  font-size: 2rem;
+  font-size: 2.15rem;
   font-weight: 900;
   letter-spacing: -0.03em;
   background: linear-gradient(135deg, #ffffff 40%, #00d2ff 100%);
@@ -757,18 +760,18 @@ main {
   50% { opacity: 1; transform: scale(1.3); }
 }
 
-/* 3D Holographic Alexa Console */
+/* ------------------------------------------------------------- Authentic Echo 3D Bezel Console */
 .alexa-hero-console {
   position: relative;
   background: var(--panel-bg);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
   border: 1px solid var(--panel-border);
-  border-radius: 1.5rem;
+  border-radius: 1.6rem;
   padding: 2.25rem 1.75rem 1.75rem;
   margin-bottom: 2.5rem;
   box-shadow: 
-    0 24px 60px rgba(0, 0, 0, 0.6),
+    0 24px 60px rgba(0, 0, 0, 0.65),
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
     0 0 35px rgba(0, 210, 255, 0.08);
   overflow: hidden;
@@ -788,13 +791,13 @@ main {
   100% { background-position: 200% 0; }
 }
 
-/* ------------------------------------------------------------- Nostalgic Alexa Light Ring (Modern 3D) */
+/* Nostalgic Alexa 3D Light Ring */
 .alexa-ring-stage {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 1.25rem 0 0.5rem;
+  padding: 1rem 0 0.4rem;
   perspective: 900px;
 }
 .alexa-ring-viewport {
@@ -805,23 +808,21 @@ main {
   align-items: center;
   justify-content: center;
   transform-style: preserve-3d;
-  transform: rotateX(46deg); /* 3D Echo Crown perspective */
+  transform: rotateX(46deg); /* Authentic 3D Echo Crown perspective */
   transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Ambient Radial Halo */
 .alexa-ambient-halo {
   position: absolute;
-  width: 220px;
-  height: 220px;
+  width: 225px;
+  height: 225px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(0, 210, 255, 0.38) 0%, rgba(0, 119, 255, 0.18) 50%, transparent 70%);
-  filter: blur(18px);
+  background: radial-gradient(circle, rgba(0, 210, 255, 0.4) 0%, rgba(0, 119, 255, 0.2) 50%, transparent 70%);
+  filter: blur(20px);
   animation: halo-breathe 3.5s ease-in-out infinite;
   pointer-events: none;
 }
 
-/* The Iconic Cylindrical Light Ring Bezel */
 .alexa-crown-bezel {
   width: 165px;
   height: 165px;
@@ -837,7 +838,6 @@ main {
   justify-content: center;
 }
 
-/* The Nostalgic Dual-Tone Cyan & Blue Light Ring */
 .alexa-light-ring {
   width: 150px;
   height: 150px;
@@ -867,10 +867,9 @@ main {
   transition: all 0.35s ease;
 }
 
-/* Active Ring State Modifiers */
 .alexa-light-ring.listening {
-  animation: ring-sweep 1.6s linear infinite, ring-pulse 1s ease-in-out infinite alternate !important;
-  box-shadow: 0 0 40px #00ffff, 0 0 85px rgba(0, 210, 255, 0.95), inset 0 0 22px #ffffff !important;
+  animation: ring-sweep 1.5s linear infinite, ring-pulse 0.8s ease-in-out infinite alternate !important;
+  box-shadow: 0 0 45px #00ffff, 0 0 90px rgba(0, 210, 255, 0.95), inset 0 0 22px #ffffff !important;
 }
 .alexa-light-ring.thinking {
   animation: ring-sweep 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
@@ -880,40 +879,30 @@ main {
   animation: ring-sweep 2.8s linear infinite, ring-voice-undulate 1.2s ease-in-out infinite !important;
 }
 
-@keyframes ring-sweep {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-@keyframes ring-pulse {
-  from { filter: brightness(1.1); }
-  to { filter: brightness(1.45); }
-}
+@keyframes ring-sweep { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+@keyframes ring-pulse { from { filter: brightness(1.1); } to { filter: brightness(1.5); } }
 @keyframes ring-voice-undulate {
   0%, 100% { transform: rotate(0deg) scale(1); filter: brightness(1.15); }
-  50% { transform: rotate(180deg) scale(1.03); filter: brightness(1.4); box-shadow: 0 0 35px #00ffff, 0 0 70px rgba(0, 210, 255, 0.85); }
+  50% { transform: rotate(180deg) scale(1.03); filter: brightness(1.45); box-shadow: 0 0 38px #00ffff, 0 0 75px rgba(0, 210, 255, 0.85); }
 }
 @keyframes halo-breathe {
   0%, 100% { opacity: 0.6; transform: scale(0.95); }
   50% { opacity: 0.95; transform: scale(1.05); }
 }
 
-/* Acoustic Hub / Center Face */
 .alexa-hub-center {
   width: 100%;
   height: 100%;
   border-radius: 50%;
   background: radial-gradient(circle at 45% 40%, #0d1720 0%, #04080c 70%, #010305 100%);
   border: 1px solid rgba(0, 210, 255, 0.25);
-  box-shadow: 
-    inset 0 3px 8px rgba(0, 0, 0, 0.95),
-    0 0 12px rgba(0, 0, 0, 0.8);
+  box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.95), 0 0 12px rgba(0, 0, 0, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
 }
 
-/* Center Directional Aperture Pip */
 .alexa-pupil-pip {
   width: 12px;
   height: 12px;
@@ -928,7 +917,6 @@ main {
   50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 22px #00ffff, 0 0 38px #00d2ff; }
 }
 
-/* Audio Waveform Canvas */
 .wave-canvas {
   width: 240px;
   height: 36px;
@@ -936,7 +924,7 @@ main {
   opacity: 0.9;
 }
 
-/* Hands-Free Wake Word Bar */
+/* Hands-Free & Live Hearing Banner */
 .wake-word-banner {
   display: flex;
   align-items: center;
@@ -944,9 +932,9 @@ main {
   background: rgba(0, 210, 255, 0.08);
   border: 1px solid rgba(0, 210, 255, 0.25);
   border-radius: 0.75rem;
-  padding: 0.6rem 1rem;
+  padding: 0.65rem 1rem;
   margin-top: 1rem;
-  font-size: 0.86rem;
+  font-size: 0.88rem;
 }
 .wake-status-group {
   display: flex;
@@ -960,12 +948,26 @@ main {
   font-weight: 700;
   border: none;
   border-radius: 0.5rem;
-  padding: 0.35rem 0.85rem;
+  padding: 0.38rem 0.85rem;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   transition: all 0.2s;
 }
 .btn-wake-toggle:hover { opacity: 0.9; }
+
+/* Real-Time Live Transcript HUD */
+.live-transcript-strip {
+  margin-top: 0.6rem;
+  padding: 0.45rem 0.85rem;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px dashed rgba(0, 210, 255, 0.3);
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  color: #00ffff;
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+}
 
 /* Voice Input Controls */
 .input-dock {
@@ -1009,47 +1011,88 @@ main {
   transform: translateY(-2px);
   box-shadow: 0 6px 22px rgba(0, 210, 255, 0.5);
 }
-.action-btn-primary:active {
-  transform: scale(0.97);
-}
+.action-btn-primary:active { transform: scale(0.97); }
 
-/* Quick Voice Trigger Capsules */
-.trigger-section {
-  margin-top: 1.25rem;
+/* ------------------------------------------------------------- Filterable Feature Showcase Palette */
+.feature-showcase-box {
+  margin-top: 1.5rem;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+  padding: 1.15rem;
 }
-.trigger-header {
-  font-size: 0.76rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-  margin-bottom: 0.6rem;
-  font-weight: 700;
-}
-.trigger-grid {
+.palette-header {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
   flex-wrap: wrap;
   gap: 0.5rem;
 }
-.trigger-pill {
+.palette-title {
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cyan-glow);
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.palette-tabs {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+.tab-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.tab-btn.active, .tab-btn:hover {
+  background: rgba(0, 210, 255, 0.18);
+  border-color: rgba(0, 210, 255, 0.45);
+  color: #fff;
+}
+.prompt-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.prompt-btn {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.09);
-  color: #cbe3eb;
-  font-size: 0.83rem;
+  color: #d8ecf5;
+  font-size: 0.82rem;
   font-weight: 500;
   padding: 0.42rem 0.85rem;
   border-radius: 9999px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  transition: all 0.2s ease;
+  gap: 0.35rem;
+  transition: all 0.18s;
   backdrop-filter: blur(8px);
 }
-.trigger-pill:hover {
-  background: rgba(0, 210, 255, 0.12);
+.prompt-btn:hover {
+  background: rgba(0, 210, 255, 0.14);
   border-color: rgba(0, 210, 255, 0.4);
   color: #fff;
   transform: translateY(-1px);
+}
+.prompt-btn.hindi-chip {
+  border-color: rgba(255, 183, 3, 0.3);
+  color: #ffe699;
+}
+.prompt-btn.hindi-chip:hover {
+  background: rgba(255, 183, 3, 0.15);
+  color: #fff;
 }
 
 /* Holographic Alexa Spoken Response Bubble */
@@ -1087,9 +1130,7 @@ main {
   align-items: center;
   gap: 0.4rem;
 }
-.inspector-tray summary:hover {
-  color: var(--cyan-glow);
-}
+.inspector-tray summary:hover { color: var(--cyan-glow); }
 .inspector-code {
   background: #020508;
   border: 1px solid rgba(0, 210, 255, 0.15);
@@ -1425,7 +1466,7 @@ def render_page(request: Request) -> str:
                 <span style="font-size:0.86rem; color:var(--text-muted)">Amount due: <b style="color:#fff">{SYMBOL}{money(m['balance'])}</b></span><br/><br/>
                 <div style="display:flex; gap:0.5rem; flex-wrap:wrap">
                   <a class="action-btn-primary" href="{escape(m['upi_url'])}" style="text-decoration:none; padding:0.5rem 1rem;">Open UPI App</a>
-                  <button class="trigger-pill" style="padding:0.5rem 1rem;" onclick="markSalaryPaid('{escape(p['name'])}')">✓ Mark as Paid</button>
+                  <button class="prompt-btn" style="padding:0.5rem 1rem;" onclick="markSalaryPaid('{escape(p['name'])}')">✓ Mark as Paid</button>
                 </div>
               </div>
             </div>
@@ -1510,34 +1551,72 @@ def render_page(request: Request) -> str:
         <span id="wakeStatusIcon">🟢</span>
         <span id="wakeStatusText"><b>Hands-Free Active</b>: Just say <i>"Alexa..."</i> aloud</span>
       </div>
-      <button class="btn-wake-toggle" id="btnWakeToggle" onclick="toggleHandsFree()">Mic Active</button>
+      <button class="btn-wake-toggle" id="btnWakeToggle" onclick="toggleHandsFree()">Listening</button>
+    </div>
+
+    <!-- Real-time Live Hearing Transcript Strip -->
+    <div class="live-transcript-strip" id="liveTranscriptStrip">
+      <span>👂 Hearing:</span>
+      <b id="liveHearingText" style="color:#fff">...</b>
     </div>
 
     <!-- Voice Input Dock -->
     <div class="input-dock">
-      <input type="text" id="voiceInput" class="voice-textbox" placeholder="Say 'Alexa, how much do I owe Sunita?' or type query..." />
-      <button class="action-btn-primary" id="micBtn" onclick="toggleMic()">🎙️ Speak</button>
+      <input type="text" id="voiceInput" class="voice-textbox" placeholder="Say 'Alexa, Sunita ka hisaab kitna hai?' or type query..." />
+      <button class="action-btn-primary" id="micBtn" onclick="tapToTalk()">🎙️ Speak</button>
       <button class="action-btn-primary" onclick="sendVoicePrompt()">Ask</button>
     </div>
 
-    <!-- Quick Test Prompts -->
-    <div class="trigger-section">
-      <div class="trigger-header">Quick Voice Triggers for Testing:</div>
-      <div class="trigger-grid">
-        <button class="trigger-pill" onclick="quickAsk('How much do I owe Sunita?')">🎙️ How much do I owe Sunita?</button>
-        <button class="trigger-pill" onclick="quickAsk('What is my total household balance?')">🎙️ Total Household Hisaab</button>
-        <button class="trigger-pill" onclick="quickAsk('How much do I owe Ramesh?')">🎙️ How much do I owe Ramesh (Cook)?</button>
-        <button class="trigger-pill" onclick="quickAsk('Pay Raju driver with Amazon Pay')">🎙️ Pay Raju (Driver) with Amazon Pay</button>
-        <button class="trigger-pill" onclick="quickAsk('Sunita took a half day today')">🎙️ Sunita took a half day today</button>
-        <button class="trigger-pill" onclick="quickAsk('Give 2000 rupees advance to Sunita')">🎙️ Advance 2000 to Sunita</button>
-        <button class="trigger-pill" onclick="quickAsk('Undo last entry')">🎙️ Undo last entry</button>
+    <!-- Categorized Interactive Feature Showcase Palette -->
+    <div class="feature-showcase-box">
+      <div class="palette-header">
+        <div class="palette-title">✨ Interactive Feature Explorer (Click to Try)</div>
+        <div class="palette-tabs">
+          <button class="tab-btn active" onclick="filterFeatures('all', this)">All</button>
+          <button class="tab-btn" onclick="filterFeatures('hindi', this)">🇮🇳 हिंदी / Hinglish</button>
+          <button class="tab-btn" onclick="filterFeatures('balance', this)">💰 Balances</button>
+          <button class="tab-btn" onclick="filterFeatures('pay', this)">💳 Pay & Advances</button>
+          <button class="tab-btn" onclick="filterFeatures('attendance', this)">📅 Attendance</button>
+          <button class="tab-btn" onclick="filterFeatures('staff', this)">👥 Staff</button>
+        </div>
+      </div>
+
+      <div class="prompt-grid" id="promptGrid">
+        <!-- Hindi / Hinglish Queries -->
+        <button class="prompt-btn hindi-chip" data-cat="hindi all" onclick="quickAsk('Sunita didi ka hisaab kitna hai?')">🗣️ सुनीता का हिसाब कितना है?</button>
+        <button class="prompt-btn hindi-chip" data-cat="hindi all" onclick="quickAsk('Ghar ka kul hisaab batao')">🗣️ कुल घर का हिसाब बताओ</button>
+        <button class="prompt-btn hindi-chip" data-cat="hindi all" onclick="quickAsk('Sunita ko 2000 rupaye advance diya')">🗣️ सुनीता को ₹2,000 एडवांस दिया</button>
+        <button class="prompt-btn hindi-chip" data-cat="hindi all" onclick="quickAsk('Ramesh aaj aadhi chhutti par tha')">🗣️ रमेश की आधी छुट्टी (Half Day)</button>
+        <button class="prompt-btn hindi-chip" data-cat="hindi all" onclick="quickAsk('Raju driver ka hisaab Amazon Pay se karo')">🗣️ राजू ड्राइवर का हिसाब Amazon Pay से करो</button>
+        <button class="prompt-btn hindi-chip" data-cat="hindi all" onclick="quickAsk('Pichhla hisaab wapas lo undo karo')">🗣️ पिछला हिसाब वापस लो (Undo)</button>
+
+        <!-- Balance Queries -->
+        <button class="prompt-btn" data-cat="balance all" onclick="quickAsk('How much do I owe Sunita?')">🎙️ How much do I owe Sunita?</button>
+        <button class="prompt-btn" data-cat="balance all" onclick="quickAsk('What is my total household balance for October?')">🎙️ Total Household Hisaab</button>
+        <button class="prompt-btn" data-cat="balance all" onclick="quickAsk('How much do I owe Ramesh cook?')">🎙️ How much do I owe Ramesh (Cook)?</button>
+        <button class="prompt-btn" data-cat="balance all" onclick="quickAsk('How much do I owe Raju driver?')">🎙️ How much do I owe Raju (Driver)?</button>
+
+        <!-- Pay & Advances -->
+        <button class="prompt-btn" data-cat="pay all" onclick="quickAsk('Pay Sunita salary with Amazon Pay')">💳 Pay Sunita with Amazon Pay</button>
+        <button class="prompt-btn" data-cat="pay all" onclick="quickAsk('Give 2000 rupees advance to Sunita')">💳 Give 2000 advance to Sunita</button>
+        <button class="prompt-btn" data-cat="pay all" onclick="quickAsk('Pay Ramesh salary with Amazon Pay')">💳 Settle Ramesh with Amazon Pay</button>
+        <button class="prompt-btn" data-cat="pay all" onclick="quickAsk('Give 1000 rupees advance to Ramesh')">💳 Give 1000 advance to Ramesh</button>
+
+        <!-- Attendance -->
+        <button class="prompt-btn" data-cat="attendance all" onclick="quickAsk('Sunita took a half day today')">📅 Sunita took half day today</button>
+        <button class="prompt-btn" data-cat="attendance all" onclick="quickAsk('Ramesh was absent yesterday')">📅 Ramesh was absent yesterday</button>
+        <button class="prompt-btn" data-cat="attendance all" onclick="quickAsk('Sunita was actually present today')">📅 Correct: Sunita was present</button>
+        <button class="prompt-btn" data-cat="attendance all" onclick="quickAsk('Undo last entry')">↩️ Undo last entry</button>
+
+        <!-- Staff Management -->
+        <button class="prompt-btn" data-cat="staff all" onclick="quickAsk('List all my household staff')">👥 List all my household staff</button>
       </div>
     </div>
 
     <!-- Alexa Spoken Speech Bubble -->
     <div class="hologram-bubble">
       <span class="bubble-speaker">Alexa</span>
-      <span id="speechText">"Hisaab is active. Say 'Alexa' followed by your question, or tap any trigger above."</span>
+      <span id="speechText">"Hisaab is active. Say 'Alexa' followed by your question in Hindi or English, or tap any trigger above."</span>
     </div>
 
     <!-- Real-time MCP Inspector -->
@@ -1622,7 +1701,7 @@ function drawWave() {{
 }}
 drawWave();
 
-// ------------------------------------------------------------- Ambient Wake Word ("Alexa") Engine
+// ------------------------------------------------------------- Ambient Wake Word & Speech Engine
 let handsFreeEnabled = true;
 let recognizing = false;
 let recognition = null;
@@ -1632,6 +1711,8 @@ const ringEl = document.getElementById('alexaLightRing');
 const wakeStatusText = document.getElementById('wakeStatusText');
 const wakeStatusIcon = document.getElementById('wakeStatusIcon');
 const btnWakeToggle = document.getElementById('btnWakeToggle');
+const liveTranscriptStrip = document.getElementById('liveTranscriptStrip');
+const liveHearingText = document.getElementById('liveHearingText');
 
 function setAlexaState(state) {{
   if (!ringEl) return;
@@ -1650,24 +1731,30 @@ function initSpeechRecognition() {{
   recognition = new SpeechRec();
   recognition.continuous = true;
   recognition.interimResults = true;
-  recognition.lang = 'en-IN';
+  recognition.lang = 'en-IN';  // Handles Indian English and Hinglish smoothly
 
   recognition.onstart = () => {{
     recognizing = true;
     wakeStatusIcon.innerText = "🟢";
-    wakeStatusText.innerHTML = "<b>Hands-Free Listening</b>: Just say <i>'Alexa...'</i> aloud";
-    btnWakeToggle.innerText = "Active";
+    wakeStatusText.innerHTML = "<b>Hands-Free Listening</b>: Say <i>'Alexa...'</i> or <i>'सुनीता का हिसाब'</i>";
+    btnWakeToggle.innerText = "Listening";
   }};
 
   recognition.onresult = (e) => {{
     if (wakeWordLock) return;
 
     for (let i = e.resultIndex; i < e.results.length; ++i) {{
-      const transcript = e.results[i][0].transcript.toLowerCase();
+      const transcript = e.results[i][0].transcript.trim().toLowerCase();
       
-      // Check for Wake Word: "alexa" or "hey alexa"
-      if (transcript.includes('alexa')) {{
-        const parts = transcript.split('alexa');
+      // Update Live Transcript Strip
+      liveTranscriptStrip.style.display = 'flex';
+      liveHearingText.innerText = transcript;
+
+      // Check for Wake Words: "alexa", "hey alexa", or direct Hindi query
+      const wakeMatch = transcript.match(/(?:hey\\s+)?(?:alexa|elixa|alex|alxa|अलेक्सा)/i);
+
+      if (wakeMatch) {{
+        const parts = transcript.split(wakeMatch[0]);
         const command = parts.slice(1).join(' ').trim();
 
         if (!ringEl.classList.contains('listening')) {{
@@ -1683,6 +1770,14 @@ function initSpeechRecognition() {{
           sendVoicePrompt(command);
           break;
         }}
+      }} else if (e.results[i].isFinal && transcript.length > 5 && !wakeWordLock) {{
+        // If in direct push-to-talk mode
+        if (document.getElementById('micBtn').innerText.includes('Listening')) {{
+          wakeWordLock = true;
+          document.getElementById('voiceInput').value = transcript;
+          sendVoicePrompt(transcript);
+          break;
+        }}
       }}
     }}
   }};
@@ -1690,15 +1785,15 @@ function initSpeechRecognition() {{
   recognition.onerror = (e) => {{
     if (e.error === 'not-allowed') {{
       wakeStatusIcon.innerText = "🔒";
-      wakeStatusText.innerHTML = "Mic permission needed. Click <b>'Start Mic'</b> to enable Hands-Free.";
-      btnWakeToggle.innerText = "Start Mic";
+      wakeStatusText.innerHTML = "Mic permission needed. Click <b>'🎙️ Speak'</b> to enable.";
+      btnWakeToggle.innerText = "Enable Mic";
       handsFreeEnabled = false;
     }}
   }};
 
   recognition.onend = () => {{
     recognizing = false;
-    // Auto-restart to maintain ambient hands-free listening
+    liveTranscriptStrip.style.display = 'none';
     if (handsFreeEnabled && !wakeWordLock) {{
       setTimeout(() => {{
         try {{ recognition.start(); }} catch(err) {{}}
@@ -1708,6 +1803,15 @@ function initSpeechRecognition() {{
 }}
 
 initSpeechRecognition();
+
+function tapToTalk() {{
+  playAlexaWakeChime();
+  setAlexaState('listening');
+  isAudioActive = true;
+  document.getElementById('micBtn').innerText = '🔴 Listening...';
+  handsFreeEnabled = true;
+  try {{ recognition.start(); }} catch(err) {{}}
+}}
 
 function toggleHandsFree() {{
   if (!recognition) return;
@@ -1723,13 +1827,24 @@ function toggleHandsFree() {{
   }}
 }}
 
-function toggleMic() {{
-  toggleHandsFree();
-}}
-
 function quickAsk(text) {{
   document.getElementById('voiceInput').value = text;
   sendVoicePrompt(text);
+}}
+
+function filterFeatures(category, btn) {{
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  const chips = document.querySelectorAll('.prompt-btn');
+  chips.forEach(chip => {{
+    const cats = chip.getAttribute('data-cat') || '';
+    if (category === 'all' || cats.includes(category)) {{
+      chip.style.display = 'inline-flex';
+    }} else {{
+      chip.style.display = 'none';
+    }}
+  }});
 }}
 
 async function sendVoicePrompt(customText) {{
@@ -1742,6 +1857,7 @@ async function sendVoicePrompt(customText) {{
   speechText.innerText = "Processing via Alexa+ Agent Core over Streamable HTTP...";
   setAlexaState('thinking');
   isAudioActive = true;
+  document.getElementById('micBtn').innerText = '🎙️ Speak';
 
   try {{
     const resp = await fetch('/api/simulate', {{
@@ -1765,7 +1881,6 @@ async function sendVoicePrompt(customText) {{
         isAudioActive = false;
         setAlexaState(null);
         wakeWordLock = false;
-        // Resume continuous listening
         if (handsFreeEnabled && !recognizing) {{
           try {{ recognition.start(); }} catch(err) {{}}
         }}
@@ -1802,7 +1917,7 @@ function markSalaryPaid(person) {{
   quickAsk(`Pay ${{person}} salary with Amazon Pay`);
 }}
 
-// Start ambient listening on initial user interaction
+// Initialize listening on first click
 window.addEventListener('click', () => {{
   if (recognition && !recognizing && handsFreeEnabled) {{
     try {{ recognition.start(); }} catch(err) {{}}
@@ -1820,15 +1935,15 @@ def token_ok(value: str) -> bool:
 
 @mcp.custom_route("/api/simulate", methods=["POST"])
 async def simulate_voice(request: Request) -> Response:
-    """Simulates an Alexa+ conversational agent turn dispatching to FastMCP tools."""
+    """Simulates an Alexa+ conversational agent turn dispatching to FastMCP tools with Hindi and Hinglish comprehension."""
     try:
         body = await request.json()
     except Exception:
         return JSONResponse({"ok": False, "spoken_summary": "Invalid JSON request."}, status_code=400)
 
     prompt = (body.get("prompt") or "").strip().lower()
-    # Strip leading "alexa" if present
-    prompt = re.sub(r"^(hey\s+)?alexa\s*", "", prompt).strip()
+    # Strip leading "alexa", "hey alexa", "अलेक्सा"
+    prompt = re.sub(r"^(hey\s+)?(alexa|elixa|alex|अलेक्सा)\s*", "", prompt).strip()
 
     d = today()
     mutated = False
@@ -1842,15 +1957,31 @@ async def simulate_voice(request: Request) -> Response:
     with db() as conn:
         people = conn.execute("SELECT * FROM people WHERE active=1 ORDER BY id").fetchall()
 
-    # Dynamic Person Matching
+    # Dynamic Person Matching (Supports English, Hindi aliases, and generic terms)
     target_person = "Sunita"  # default
+    matched_explicit = False
     for p in people:
-        if p["name"].lower() in prompt:
+        p_name = p["name"].lower()
+        if p_name in prompt or (p_name == "sunita" and ("सुनीता" in prompt or "maid" in prompt or "bai" in prompt or "didi" in prompt)):
             target_person = p["name"]
+            matched_explicit = True
+            break
+        elif p_name == "ramesh" and ("रमेश" in prompt or "cook" in prompt or "chef" in prompt or "rasoiya" in prompt):
+            target_person = p["name"]
+            matched_explicit = True
+            break
+        elif p_name == "raju" and ("राजू" in prompt or "driver" in prompt):
+            target_person = p["name"]
+            matched_explicit = True
+            break
+        elif p_name == "anil" and ("अनिल" in prompt or "milkman" in prompt or "doodh" in prompt or "dairy" in prompt):
+            target_person = p["name"]
+            matched_explicit = True
             break
 
-    # Intent routing simulation
-    if "undo" in prompt:
+    # Intent routing simulation (Supports Hindi + English)
+    # 1. Undo
+    if any(k in prompt for k in ["undo", "wapas", "वापस", "cancel", "galti", "गलती", "revert"]):
         res = undo_last()
         mutated = True
         trace["tool"] = "undo_last"
@@ -1858,21 +1989,26 @@ async def simulate_voice(request: Request) -> Response:
         trace["result"] = res
         return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
 
-    if "total" in prompt or "household" in prompt or "everyone" in prompt or "all staff" in prompt or "balance" in prompt and not any(p["name"].lower() in prompt for p in people):
+    # 2. Total Household Hisaab
+    if any(k in prompt for k in ["total", "household", "everyone", "kul", "कुल", "sabka", "सबका", "poora", "pura", "all staff"]) or (
+        any(k in prompt for k in ["balance", "hisaab", "हिसाब"]) and not matched_explicit and not any(p["name"].lower() in prompt for p in people)
+    ):
         res = household_hisaab(month=f"{d.year}-{d.month:02d}")
         trace["tool"] = "household_hisaab"
         trace["arguments"] = {"month": f"{d.year}-{d.month:02d}"}
         trace["result"] = res
         return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
 
-    if "list" in prompt or "who works" in prompt or "staff" in prompt and ("all" in prompt or "my" in prompt):
+    # 3. List People / Staff
+    if any(k in prompt for k in ["list", "who works", "kaun kaun", "कौन कौन", "staff dikhao", "staff list"]):
         res = list_people()
         trace["tool"] = "list_people"
         trace["arguments"] = {}
         trace["result"] = res
         return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
 
-    if "pay" in prompt and ("salary" in prompt or "amazon" in prompt or "upi" in prompt or "settle" in prompt):
+    # 4. Salary Payment via Amazon Pay / UPI
+    if any(k in prompt for k in ["pay", "payment", "salary", "amazon", "upi", "settle", "de do", "दे दो", "bhugtan", "भुगतान", "chukao"]):
         res = pay_salary(person=target_person, payment_mode="amazon_pay")
         mutated = True
         trace["tool"] = "pay_salary"
@@ -1880,7 +2016,8 @@ async def simulate_voice(request: Request) -> Response:
         trace["result"] = res
         return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
 
-    if "half day" in prompt:
+    # 5. Half Day / Aadhi Chhutti
+    if any(k in prompt for k in ["half day", "half", "aadha", "aadhi", "आधी", "halfday"]):
         res = log_visit(person=target_person, status="half_day")
         mutated = True
         trace["tool"] = "log_visit"
@@ -1888,7 +2025,8 @@ async def simulate_voice(request: Request) -> Response:
         trace["result"] = res
         return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
 
-    if "advance" in prompt:
+    # 6. Advance Payment
+    if any(k in prompt for k in ["advance", "advans", "एडवांस", "peshgi", "advance diya", "diya"]):
         amt_match = re.search(r"(\d+)", prompt)
         amt = float(amt_match.group(1)) if amt_match else 2000.0
         res = log_payment(person=target_person, amount=amt, kind="advance")
@@ -1898,7 +2036,8 @@ async def simulate_voice(request: Request) -> Response:
         trace["result"] = res
         return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
 
-    if "absent" in prompt:
+    # 7. Absence / Chhutti
+    if any(k in prompt for k in ["absent", "chhutti", "chutti", "छुट्टी", "nahi aayi", "nahi aaya", "नहीं आई", "leave"]):
         res = log_visit(person=target_person, status="absent")
         mutated = True
         trace["tool"] = "log_visit"
@@ -1906,7 +2045,7 @@ async def simulate_voice(request: Request) -> Response:
         trace["result"] = res
         return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
 
-    # Default: month hisaab query for target person
+    # Default: Individual Staff Hisaab / Balance Query
     res = month_hisaab(person=target_person, month=f"{d.year}-{d.month:02d}")
     trace["tool"] = "month_hisaab"
     trace["arguments"] = {"person": target_person, "month": f"{d.year}-{d.month:02d}"}

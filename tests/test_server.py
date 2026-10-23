@@ -3,7 +3,8 @@ from datetime import date
 from server import (
     db, set_up_person, log_visit, log_absences, log_payment, pay_salary,
     month_hisaab, household_hisaab, list_people, undo_last, annual_insights,
-    log_pieces, log_penalty, split_bill
+    log_pieces, log_penalty, split_bill, list_commitments, add_commitment,
+    pay_commitment_amazon_pay, toggle_autopay, total_household_burn, upcoming_reminders
 )
 
 @pytest.fixture(autouse=True)
@@ -104,3 +105,67 @@ def test_flatmate_splitter():
     assert res["links"]["Amit"]["share"] == 2000
     assert "upi://pay" in res["links"]["Amit"]["upi_url"]
     assert "wa.me" in res["links"]["Amit"]["whatsapp_request"]
+
+
+def test_commitments_and_autopay():
+    add_res = add_commitment(name="iPhone 16 Pro EMI", amount=4200, due_day=5, category="emi", autopay=True)
+    assert add_res["ok"] is True
+    assert add_res["name"] == "iPhone 16 Pro EMI"
+    assert add_res["amount"] == 4200
+    assert add_res["autopay_enabled"] is True
+
+    comms = list_commitments()
+    assert comms["ok"] is True
+    assert comms["total_fixed_amount"] == 4200
+    assert comms["autopay_total"] == 4200
+    assert len(comms["commitments"]) == 1
+
+    # Toggle AutoPay off
+    tog = toggle_autopay(name="iPhone 16 Pro EMI")
+    assert tog["ok"] is True
+    assert tog["autopay_enabled"] is False
+
+    # Check list again
+    comms2 = list_commitments()
+    assert comms2["manual_total"] == 4200
+    assert comms2["autopay_total"] == 0
+
+
+def test_pay_commitment_amazon_pay():
+    add_commitment(name="Tata Power Electricity", amount=1850, due_day=10, category="utility_bill", autopay=True)
+    res = pay_commitment_amazon_pay(name="Tata Power Electricity")
+    assert res["ok"] is True
+    assert res["amount_paid"] == 1850
+    assert "amazonpay@apl" in res["upi_url"]
+    assert "amazonpay://pay" in res["amazon_pay_deep_link"]
+    assert res["status"] == "paid"
+    assert "Processed 1,850 rupees for Tata Power Electricity" in res["spoken_summary"]
+
+
+def test_total_household_burn():
+    # 1. Domestic help
+    set_up_person(name="Sunita", pay_amount=9000, pay_unit="month")
+    # 2. Fixed commitments
+    add_commitment(name="iPhone 16 Pro EMI", amount=4200, due_day=5, category="emi", autopay=True)
+    add_commitment(name="Flat Rent", amount=20000, due_day=1, category="rent", autopay=False)
+
+    burn = total_household_burn(month="2026-10")
+    assert burn["ok"] is True
+    assert burn["domestic_services_total"] == 9000
+    assert burn["fixed_commitments_total"] == 24200
+    assert burn["total_household_burn"] == 33200
+    assert "Your total household burn this month is 33,200 rupees" in burn["spoken_summary"]
+
+
+def test_upcoming_reminders():
+    # Today is 2026-10-23 in test environment
+    add_commitment(name="Airtel Wi-Fi", amount=999, due_day=25, category="subscription", autopay=True)
+    add_commitment(name="Club Gym", amount=2500, due_day=28, category="subscription", autopay=False)
+    add_commitment(name="Next Month Rent", amount=15000, due_day=1, category="rent", autopay=False)
+
+    rem = upcoming_reminders(days_ahead=7)
+    assert rem["ok"] is True
+    assert rem["upcoming_count"] == 2  # 25th (in 2 days) and 28th (in 5 days)
+    assert "Airtel Wi-Fi" in rem["spoken_summary"]
+    assert "Club Gym" in rem["spoken_summary"]
+

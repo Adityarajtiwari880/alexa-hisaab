@@ -85,6 +85,20 @@ CREATE TABLE IF NOT EXISTS events(
   undone INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_events_person_day ON events(person_id, day);
+CREATE TABLE IF NOT EXISTS commitments(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  category TEXT NOT NULL DEFAULT 'emi',
+  amount REAL NOT NULL,
+  due_day INTEGER NOT NULL,
+  autopay_enabled INTEGER NOT NULL DEFAULT 1,
+  autopay_provider TEXT NOT NULL DEFAULT 'Amazon Pay',
+  pay_url TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'pending',
+  last_paid_date TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_commitments_due ON commitments(due_day);
 """
 
 
@@ -116,6 +130,25 @@ def ensure_seed_data():
     if "test" in db_path:
         return
     with db() as conn:
+        # Ensure default commitments (EMIs, Rent, Bills with Amazon Pay AutoPay)
+        try:
+            comm_cnt = conn.execute("SELECT count(*) as cnt FROM commitments").fetchone()["cnt"]
+            if comm_cnt == 0:
+                default_commitments = [
+                    ("iPhone 16 Pro EMI", "emi", 4200.0, 5, 1, "Amazon Pay ICICI Card"),
+                    ("Flat Rent & Society", "rent", 22000.0, 1, 0, "Amazon Pay UPI"),
+                    ("Tata Power Electricity", "utility_bill", 1850.0, 10, 1, "Amazon Pay AutoPay"),
+                    ("Airtel Xstream Fiber", "subscription", 999.0, 15, 1, "Amazon Pay AutoPay"),
+                ]
+                for c_name, c_cat, c_amt, c_day, c_auto, c_prov in default_commitments:
+                    conn.execute(
+                        "INSERT INTO commitments(name, category, amount, due_day, autopay_enabled, autopay_provider, status, created_at) "
+                        "VALUES (?,?,?,?,?,?,?,?)",
+                        (c_name, c_cat, c_amt, c_day, c_auto, c_prov, "pending", datetime.now(TZ).isoformat())
+                    )
+        except Exception:
+            pass
+
         count = conn.execute("SELECT count(*) as cnt FROM people").fetchone()["cnt"]
         if count >= 6:
             return
@@ -196,6 +229,25 @@ def ensure_seed_data():
             "ON CONFLICT(name) DO UPDATE SET rate=excluded.rate, category=excluded.category, item_detail=excluded.item_detail, icon=excluded.icon",
             ("Bisleri 20L Water", 80.0, "day", -1, 0.0, 1, "water.vendor@apl", "utility", "20 Litre Bubble Top Jars (₹80/jar)", "💧")
         )
+
+        # 7. Default Fixed Commitments & EMIs with Amazon Pay AutoPay
+        try:
+            comm_cnt = conn.execute("SELECT count(*) as cnt FROM commitments").fetchone()["cnt"]
+            if comm_cnt == 0:
+                default_commitments = [
+                    ("iPhone 16 Pro EMI", "emi", 4200.0, 5, 1, "Amazon Pay ICICI Card"),
+                    ("Flat Rent & Society", "rent", 22000.0, 1, 0, "Amazon Pay UPI"),
+                    ("Tata Power Electricity", "utility_bill", 1850.0, 10, 1, "Amazon Pay AutoPay"),
+                    ("Airtel Xstream Fiber", "subscription", 999.0, 15, 1, "Amazon Pay AutoPay"),
+                ]
+                for c_name, c_cat, c_amt, c_day, c_auto, c_prov in default_commitments:
+                    conn.execute(
+                        "INSERT INTO commitments(name, category, amount, due_day, autopay_enabled, autopay_provider, status, created_at) "
+                        "VALUES (?,?,?,?,?,?,?,?)",
+                        (c_name, c_cat, c_amt, c_day, c_auto, c_prov, "pending", datetime.now(TZ).isoformat())
+                    )
+        except Exception:
+            pass
 
 
 ensure_seed_data()
@@ -895,6 +947,240 @@ def undo_last() -> dict:
         "spoken_summary": f"Undone: {what}{extra} for {e['name']} on {e['day']}.",
     }
 
+
+
+@mcp.tool()
+@safe
+def list_commitments(month: str = "") -> dict:
+    """List all fixed household overheads, EMIs, and utility bills with due dates and Amazon Pay AutoPay status."""
+    with db() as conn:
+        rows = conn.execute("SELECT * FROM commitments ORDER BY due_day ASC").fetchall()
+        now = today()
+        total_amt = 0.0
+        autopay_amt = 0.0
+        items = []
+        for r in rows:
+            amt = float(r["amount"])
+            total_amt += amt
+            is_auto = bool(r["autopay_enabled"])
+            if is_auto:
+                autopay_amt += amt
+            days_in_mth = calendar.monthrange(now.year, now.month)[1]
+            diff = r["due_day"] - now.day if r["due_day"] >= now.day else (days_in_mth - now.day) + r["due_day"]
+            due_note = "Today" if diff == 0 else f"In {diff} days ({r['due_day']}th)" 
+            items.append({
+                "name": r["name"],
+                "category": r["category"],
+                "amount": amt,
+                "due_day": r["due_day"],
+                "due_note": due_note,
+                "autopay_enabled": is_auto,
+                "provider": r["autopay_provider"],
+                "status": r["status"],
+            })
+    spoken_summary = (
+        f"You have {len(items)} fixed commitments totaling {spoken(total_amt)} per month. "
+        f"{spoken(autopay_amt)} is protected by Amazon Pay AutoPay."
+    )
+    return {
+        "ok": True,
+        "commitments": items,
+        "total_fixed_amount": round(total_amt),
+        "autopay_total": round(autopay_amt),
+        "manual_total": round(total_amt - autopay_amt),
+        "spoken_summary": spoken_summary,
+    }
+
+
+@mcp.tool()
+@safe
+def add_commitment(
+    name: str,
+    amount: float,
+    due_day: int,
+    category: str = "emi",
+    autopay: bool = True,
+    provider: str = "Amazon Pay",
+) -> dict:
+    """Register a new recurring EMI, rent, or utility bill with Amazon Pay AutoPay support."""
+    if amount <= 0:
+        raise ValueError("Commitment amount must be greater than zero.")
+    if not (1 <= int(due_day) <= 31):
+        raise ValueError("Due day must be between 1 and 31.")
+    nm = name.strip()
+    if not nm:
+        raise ValueError("Please provide a valid commitment name.")
+    cat = (category or "emi").strip().lower()
+    auto_val = 1 if autopay else 0
+    with db() as conn:
+        conn.execute(
+            "INSERT INTO commitments(name, category, amount, due_day, autopay_enabled, autopay_provider, status, created_at) "
+            "VALUES (?,?,?,?,?,?, 'pending', ?) "
+            "ON CONFLICT(name) DO UPDATE SET amount=excluded.amount, due_day=excluded.due_day, "
+            "autopay_enabled=excluded.autopay_enabled, autopay_provider=excluded.autopay_provider, category=excluded.category",
+            (nm, cat, amount, int(due_day), auto_val, provider, datetime.now(TZ).isoformat())
+        )
+    auto_txt = f"AutoPay active via {provider}" if autopay else "Manual payment required"
+    return {
+        "ok": True,
+        "name": nm,
+        "amount": amount,
+        "due_day": int(due_day),
+        "autopay_enabled": bool(autopay),
+        "provider": provider,
+        "spoken_summary": f"Added {nm} of {spoken(amount)} due on the {due_day}th of every month. {auto_txt}.",
+    }
+
+
+@mcp.tool()
+@safe
+def pay_commitment_amazon_pay(name: str, month: str = "") -> dict:
+    """Initiate an instant 1-tap Amazon Pay payment or settle an EMI / bill."""
+    with db() as conn:
+        row = conn.execute("SELECT * FROM commitments WHERE name LIKE ? COLLATE NOCASE", (f"%{name}%",)).fetchone()
+        if not row:
+            rows = conn.execute("SELECT * FROM commitments").fetchall()
+            for r in rows:
+                if any(w in r["name"].lower() for w in name.lower().split()):
+                    row = r
+                    break
+        if not row:
+            raise ValueError(f"No commitment found matching '{name}'.")
+        amt = float(row["amount"])
+        comm_name = row["name"]
+        conn.execute("UPDATE commitments SET status='paid', last_paid_date=? WHERE id=?",
+                     (datetime.now(TZ).date().isoformat(), row["id"]))
+    
+    clean_memo = f"AmazonPay_{comm_name.replace(' ', '_')}"
+    upi_url = f"upi://pay?pa=amazonpay@apl&pn=AmazonPay_BillDesk&am={int(round(amt))}&cu=INR&tn={clean_memo}"
+    amazon_app_url = f"amazonpay://pay?pa=amazonpay@apl&am={int(round(amt))}&tn={clean_memo}"
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(upi_url)}"
+    
+    return {
+        "ok": True,
+        "name": comm_name,
+        "amount_paid": amt,
+        "payment_method": "Amazon Pay UPI / AutoPay",
+        "upi_url": upi_url,
+        "amazon_pay_deep_link": amazon_app_url,
+        "qr_url": qr_url,
+        "status": "paid",
+        "spoken_summary": f"Processed {spoken(amt)} for {comm_name} via Amazon Pay. Your receipt has been updated.",
+    }
+
+
+@mcp.tool()
+@safe
+def toggle_autopay(name: str, enable: Optional[bool] = None) -> dict:
+    """Enable or disable Amazon Pay AutoPay e-mandate for an EMI or recurring bill."""
+    with db() as conn:
+        row = conn.execute("SELECT * FROM commitments WHERE name LIKE ? COLLATE NOCASE", (f"%{name}%",)).fetchone()
+        if not row:
+            rows = conn.execute("SELECT * FROM commitments").fetchall()
+            for r in rows:
+                if any(w in r["name"].lower() for w in name.lower().split()):
+                    row = r
+                    break
+        if not row:
+            raise ValueError(f"No commitment found matching '{name}'.")
+        
+        cur = bool(row["autopay_enabled"])
+        new_state = (not cur) if enable is None else bool(enable)
+        conn.execute("UPDATE commitments SET autopay_enabled=? WHERE id=?", (1 if new_state else 0, row["id"]))
+        comm_name = row["name"]
+        provider = row["autopay_provider"]
+    
+    state_str = "enabled and active" if new_state else "disabled"
+    return {
+        "ok": True,
+        "name": comm_name,
+        "autopay_enabled": new_state,
+        "provider": provider,
+        "spoken_summary": f"Amazon Pay AutoPay for {comm_name} is now {state_str}.",
+    }
+
+
+@mcp.tool()
+@safe
+def total_household_burn(month: str = "") -> dict:
+    """Calculate the total household monthly burn: combining domestic help, daily supplies, and fixed EMIs / bills."""
+    y, mth = parse_month(month)
+    with db() as conn:
+        people = conn.execute("SELECT * FROM people WHERE active=1").fetchall()
+        staff_spend = 0.0
+        for p in people:
+            m = compute_month(conn, p, y, mth)
+            staff_spend += max(0.0, float(m["balance"]))
+        
+        comm_rows = conn.execute("SELECT * FROM commitments").fetchall()
+        fixed_spend = sum(float(r["amount"]) for r in comm_rows)
+        autopay_spend = sum(float(r["amount"]) for r in comm_rows if r["autopay_enabled"])
+        
+        total_burn = staff_spend + fixed_spend
+        now = today()
+        impending = 0.0
+        days_in_mth = calendar.monthrange(now.year, now.month)[1]
+        for r in comm_rows:
+            diff = r["due_day"] - now.day if r["due_day"] >= now.day else (days_in_mth - now.day) + r["due_day"]
+            if 0 <= diff <= 7:
+                impending += float(r["amount"])
+    
+    spoken_summary = (
+        f"Your total household burn this month is {spoken(total_burn)}. "
+        f"That includes {spoken(staff_spend)} for domestic staff and daily supplies, "
+        f"and {spoken(fixed_spend)} across {len(comm_rows)} fixed EMIs and bills. "
+        f"Keep at least {spoken(impending + 5000)} liquid for payments due in the next week."
+    )
+    return {
+        "ok": True,
+        "month": f"{y}-{mth:02d}",
+        "total_household_burn": round(total_burn),
+        "domestic_services_total": round(staff_spend),
+        "fixed_commitments_total": round(fixed_spend),
+        "autopay_covered": round(autopay_spend),
+        "upcoming_7day_liquidity_needed": round(impending),
+        "spoken_summary": spoken_summary,
+    }
+
+
+@mcp.tool()
+@safe
+def upcoming_reminders(days_ahead: int = 7) -> dict:
+    """Check for upcoming EMIs, utility bills, and salary dues in the next N days."""
+    now = today()
+    with db() as conn:
+        comm_rows = conn.execute("SELECT * FROM commitments ORDER BY due_day ASC").fetchall()
+        due_items = []
+        for r in comm_rows:
+            days_in_mth = calendar.monthrange(now.year, now.month)[1]
+            diff = r["due_day"] - now.day if r["due_day"] >= now.day else (days_in_mth - now.day) + r["due_day"]
+            if 0 <= diff <= days_ahead:
+                due_items.append({
+                    "name": r["name"],
+                    "amount": float(r["amount"]),
+                    "due_day": r["due_day"],
+                    "days_remaining": diff,
+                    "autopay": bool(r["autopay_enabled"]),
+                    "provider": r["autopay_provider"],
+                })
+    
+    if not due_items:
+        spoken_summary = f"Good news! You have no EMIs or bills due in the next {days_ahead} days."
+    else:
+        parts = []
+        for it in due_items:
+            auto_info = f"via {it['provider']} AutoPay" if it["autopay"] else "requires manual payment"
+            day_str = "today" if it["days_remaining"] == 0 else f"in {it['days_remaining']} days"
+            parts.append(f"{it['name']} of {spoken(it['amount'])} ({day_str}, {auto_info})")
+        spoken_summary = f"You have {len(due_items)} payments due in the next {days_ahead} days: " + "; ".join(parts) + "."
+    
+    return {
+        "ok": True,
+        "days_ahead": days_ahead,
+        "upcoming_count": len(due_items),
+        "items": due_items,
+        "spoken_summary": spoken_summary,
+    }
 
 # ----------------------------------------------------------------- Calendar & Web UI
 def ics_escape(s: str) -> str:
@@ -1873,6 +2159,85 @@ def render_page(request: Request) -> str:
             )
             continue
 
+        # Fixed Commitments & EMIs Cards
+        try:
+            comm_rows = conn.execute("SELECT * FROM commitments ORDER BY due_day ASC").fetchall()
+        except Exception:
+            comm_rows = []
+        
+        staff_burn = sum(max(0.0, float(compute_month(conn, p, now.year, now.month)["balance"])) for p in people)
+        fixed_burn = sum(float(c["amount"]) for c in comm_rows)
+        total_burn = staff_burn + fixed_burn
+        days_in_mth = calendar.monthrange(now.year, now.month)[1]
+        impending_7d = sum(float(c["amount"]) for c in comm_rows if 0 <= (c["due_day"] - now.day if c["due_day"] >= now.day else (days_in_mth - now.day) + c["due_day"]) <= 7)
+
+        for c in comm_rows:
+            c_id = c["id"]
+            c_name = c["name"]
+            c_amt = float(c["amount"])
+            c_day = c["due_day"]
+            c_cat = c["category"]
+            c_auto = bool(c["autopay_enabled"])
+            c_prov = c["autopay_provider"]
+            c_status = c["status"]
+            days_in_mth = calendar.monthrange(now.year, now.month)[1]
+            diff = c_day - now.day if c_day >= now.day else (days_in_mth - now.day) + c_day
+            due_note = "Due Today!" if diff == 0 else f"Due in {diff} days ({c_day}th)" 
+            
+            icon = "📱" if c_cat == "emi" else "🏠" if c_cat == "rent" else "⚡" if c_cat == "utility_bill" else "🌐"
+            cat_label = "💳 Fixed EMI" if c_cat == "emi" else "🏠 House Rent" if c_cat == "rent" else "⚡ Utility Bill" if c_cat == "utility_bill" else "🌐 Subscription"
+            
+            auto_badge = f'<span style="background:rgba(0,230,118,0.15); border:1px solid #00e676; color:#00e676; padding:0.25rem 0.6rem; border-radius:999px; font-size:0.75rem; font-weight:700;">⚡ {escape(c_prov)} AutoPay: ACTIVE</span>' if c_auto else f'<span style="background:rgba(255,183,3,0.15); border:1px solid #ffb703; color:#ffb703; padding:0.25rem 0.6rem; border-radius:999px; font-size:0.75rem; font-weight:700;">⚠️ Manual Payment Needed</span>'
+            status_badge = '<span style="color:#00e676; font-size:0.85rem; font-weight:bold;">✓ Succeeded / Paid</span>' if c_status == "paid" else f'<span style="color:#ffb703; font-size:0.85rem;">⏳ {escape(due_note)}</span>'
+            
+            upi_memo = f"AmazonPay_{c_name.replace(' ', '_')}"
+            comm_upi_url = f"upi://pay?pa=amazonpay@apl&pn=AmazonPay_BillDesk&am={int(round(c_amt))}&cu=INR&tn={upi_memo}"
+            comm_qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(comm_upi_url)}"
+            
+            comm_upi_drawer = f"""
+            <div id="comm-upi-drawer-{c_id}" class="upi-expansion-card" style="display:none;">
+              <img class="upi-qr-image" src="{escape(comm_qr_url)}" alt="Amazon Pay QR Code" />
+              <div class="upi-pay-info">
+                <b>Pay {escape(c_name)} via Amazon Pay</b><br/>
+                <span class="upi-handle-tag">amazonpay@apl</span><br/><br/>
+                <span style="font-size:0.86rem; color:var(--text-muted)">Amount due: <b style="color:#fff">{SYMBOL}{money(c_amt)}</b></span><br/><br/>
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap">
+                  <a class="action-btn-primary" href="{escape(comm_upi_url)}" style="text-decoration:none; padding:0.5rem 1rem;">Open Amazon Pay / UPI</a>
+                  <button class="prompt-btn" style="padding:0.5rem 1rem;" onclick="markCommitmentPaid(\'{escape(c_name)}\')">✓ Mark Succeeded</button>
+                </div>
+              </div>
+            </div>
+            """
+            
+            blocks.append(
+                f'<div class="staff-card" id="card-comm-{c_id}" data-category="bills">'
+                f'  <div class="card-header">'
+                f'    <div class="card-profile">'
+                f'      <div class="staff-avatar">{icon}</div>'
+                f'      <div class="staff-names">'
+                f'        <h2>{escape(c_name)} <span class="card-cat-badge">{cat_label}</span></h2>'
+                f'        <p>{SYMBOL}{money(c_amt)}/month • Due on {c_day}th of month • {escape(c_prov)}</p>'
+                f'      </div>'
+                f'    </div>'
+                f'    <div>{auto_badge}</div>'
+                f'  </div>'
+                f'  <div class="ledger-breakdown">'
+                f'    <div class="ledger-row"><span class="ledger-label">Monthly Fixed Obligation</span><i class="ledger-dotted"></i><b class="ledger-val">{SYMBOL}{money(c_amt)}</b></div>'
+                f'    <div class="ledger-row"><span class="ledger-label">AutoPay e-Mandate Status</span><i class="ledger-dotted"></i><b class="ledger-val">{"Active via " + escape(c_prov) if c_auto else "Disabled"}</b></div>'
+                f'    <div class="ledger-row"><span class="ledger-label">Current Billing Status</span><i class="ledger-dotted"></i><b class="ledger-val">{status_badge}</b></div>'
+                f'  </div>'
+                f'  <div class="total-block">'
+                f'    <div><div class="total-title">Total Obligation</div><div class="total-subtitle">{due_note}</div></div>'
+                f'    <div class="total-amount">{SYMBOL}{money(c_amt)}</div>'
+                f'  </div>'
+                f'  <div class="card-actions" style="display:flex; gap:0.5rem; flex-wrap:wrap;">'
+                f'    <button class="btn-upi" onclick="toggleCommUpiDrawer({c_id})">⚡ Pay via Amazon Pay</button>'
+                f'    <button class="prompt-btn" onclick="toggleAutoPayAPI(\'{escape(c_name)}\')">🔄 {"Disable" if c_auto else "Enable"} AutoPay</button>'
+                f'  </div>'
+                f'  {comm_upi_drawer}'
+                f'</div>'
+            )
+
 
     if not blocks:
         blocks.append(
@@ -1956,6 +2321,12 @@ def render_page(request: Request) -> str:
       </div>
 
       <div class="prompt-grid" id="promptGrid">
+        <!-- Fixed EMIs, AutoPay & Household Burn Queries -->
+        <button class="prompt-btn" data-cat="all pay" onclick="quickAsk('Any EMIs due this week?')">🔔 Any EMIs due this week?</button>
+        <button class="prompt-btn" data-cat="all pay" onclick="quickAsk('Pay iPhone 16 Pro EMI with Amazon Pay')">⚡ Pay iPhone EMI via Amazon Pay</button>
+        <button class="prompt-btn" data-cat="all balance" onclick="quickAsk('What is my total household burn this month?')">🔥 Total Household Burn this Month</button>
+        <button class="prompt-btn" data-cat="all pay" onclick="quickAsk('Toggle AutoPay for iPhone 16 Pro EMI')">🔄 Toggle Amazon Pay AutoPay</button>
+
         <!-- Dhobi, Penalty & Flatmate Splitter Features -->
         <button class="prompt-btn" data-cat="all pay" onclick="quickAsk('Gave 12 clothes to the dhobi today')">🧺 Gave 12 clothes to the dhobi today</button>
         <button class="prompt-btn" data-cat="all pay" onclick="quickAsk('Deduct 50 rupees from Ramesh for the broken glass')">⚠️ Deduct ₹50 from Ramesh for broken glass</button>
@@ -2038,10 +2409,42 @@ def render_page(request: Request) -> str:
     </div>
   </div>
 
+  <!-- Total Household Burn & Liquidity Safety Buffer Banner -->
+  <div class="staff-card" style="margin-top:1.2rem; background:linear-gradient(135deg, rgba(255, 153, 0, 0.08) 0%, rgba(0, 210, 255, 0.06) 100%); border:1px solid rgba(255, 153, 0, 0.35); padding:1.25rem 1.6rem;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+      <div style="display:flex; align-items:center; gap:0.9rem;">
+        <div style="font-size:2rem; background:rgba(255,153,0,0.15); width:50px; height:50px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:1px solid rgba(255,153,0,0.4);">🔥</div>
+        <div>
+          <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.06em; color:#ff9900; font-weight:700;">Amazon Pay & Alexa+ Household Intelligence</div>
+          <h3 style="margin:0.15rem 0 0; font-size:1.35rem; color:#fff; font-weight:800;">Total Household Monthly Burn</h3>
+        </div>
+      </div>
+      <div style="display:flex; gap:1.2rem; flex-wrap:wrap; align-items:center;">
+        <div style="text-align:right;">
+          <div style="font-size:0.75rem; color:var(--text-muted);">Total Monthly Burn</div>
+          <b style="font-size:1.2rem; color:#ff9900;">{SYMBOL}{money(total_burn)}</b>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:0.75rem; color:var(--text-muted);">Staff & Daily Help</div>
+          <b style="font-size:1.05rem; color:#00d2ff;">{SYMBOL}{money(staff_burn)}</b>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:0.75rem; color:var(--text-muted);">Fixed EMIs & Bills</div>
+          <b style="font-size:1.05rem; color:#00e676;">{SYMBOL}{money(fixed_burn)}</b>
+        </div>
+        <button class="action-btn-primary" onclick="quickAsk('What is my total household burn this month?')" style="padding:0.5rem 1rem; font-size:0.85rem; border-radius:999px; background:linear-gradient(135deg, #ff9900 0%, #ff5500 100%);">🔥 Ask Total Burn</button>
+      </div>
+    </div>
+    <div style="margin-top:0.8rem; padding-top:0.75rem; border-top:1px solid rgba(255,255,255,0.08); font-size:0.85rem; color:#c9e6f5; display:flex; align-items:center; gap:0.5rem;">
+      <span>🛡️ <b>Liquidity Safety Buffer:</b> Maintain at least <b style="color:#00e676;">{SYMBOL}{money(impending_7d + 5000)}</b> liquid before Friday to prevent AutoPay e-mandate bounce.</span>
+    </div>
+  </div>
+
   <!-- Category Filter Bar & Add Service Action -->
   <div class="ledger-header-bar" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin:1.8rem 0 1.2rem;">
     <div class="category-tabs" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-      <button class="cat-pill active" onclick="filterServiceCategory('all', this)">⚡ All Household Services</button>
+      <button class="cat-pill active" onclick="filterServiceCategory('all', this)">⚡ All Services & Bills</button>
+      <button class="cat-pill" onclick="filterServiceCategory('bills', this)">💳 Bills & EMIs (Amazon Pay)</button>
       <button class="cat-pill" onclick="filterServiceCategory('staff', this)">🧹 Domestic Staff</button>
       <button class="cat-pill" onclick="filterServiceCategory('milk', this)">🥛 Milk & Dairy</button>
       <button class="cat-pill" onclick="filterServiceCategory('newspaper', this)">📰 Newspaper</button>
@@ -2382,8 +2785,8 @@ function initSpeechRecognition() {{
         }}
       }} else if (e.results[i].isFinal && transcript.length > 3) {{
         // Direct intent matching without wake word
-        const hasStaff = /(?:sunita|ramesh|raju|anil|ramlal|dhobi|amit|दूध|धोबी|सुनीता|रमेश|राजू|अनिल)/i.test(transcript);
-        const hasIntent = /(?:hisaab|hisab|salary|pay|advance|absent|chhutti|half|balance|undo|wapas|cloth|iron|press|kapde|penalty|deduct|broken|damage|split|share|bill|year|annual|summary|insight|हिसाब|वेतन|छुट्टी|कपड़े|जुर्माना|साल)/i.test(transcript);
+        const hasStaff = /(?:sunita|ramesh|raju|anil|ramlal|dhobi|amit|iphone|tata|airtel|rent|दूध|धोबी|सुनीता|रमेश|राजू|अनिल)/i.test(transcript);
+        const hasIntent = /(?:hisaab|hisab|salary|pay|advance|absent|chhutti|half|balance|undo|wapas|cloth|iron|press|kapde|penalty|deduct|broken|damage|split|share|bill|year|annual|summary|insight|emi|burn|autopay|reminder|due|amazon|हिसाब|वेतन|छुट्टी|कपड़े|जुर्माना|साल|खर्चा)/i.test(transcript);
         if (hasStaff || hasIntent || micBtn.innerText.includes('Listening')) {{
           document.getElementById('voiceInput').value = transcript;
           sendVoicePrompt(transcript);
@@ -2485,6 +2888,51 @@ function filterServiceCategory(cat, btn) {{
       card.style.display = 'none';
     }}
   }});
+}}
+
+function toggleCommUpiDrawer(id) {{
+  const el = document.getElementById('comm-upi-drawer-' + id);
+  if (el) {{
+    el.style.display = (el.style.display === 'none' || !el.style.display) ? 'flex' : 'none';
+  }}
+}}
+
+async function markCommitmentPaid(name) {{
+  try {{
+    const res = await fetch('/api/pay_commitment', {{
+      method: 'POST',
+      headers: {{'Content-Type': 'application/json'}},
+      body: JSON.stringify({{name: name}})
+    }});
+    const data = await res.json();
+    if (data.ok) {{
+      speakAlexaResponse(data.spoken_summary);
+      setTimeout(() => window.location.reload(), 1500);
+    }} else {{
+      alert('Error: ' + (data.error || 'Payment failed'));
+    }}
+  }} catch (e) {{
+    alert('Error connecting to server');
+  }}
+}}
+
+async function toggleAutoPayAPI(name) {{
+  try {{
+    const res = await fetch('/api/toggle_autopay', {{
+      method: 'POST',
+      headers: {{'Content-Type': 'application/json'}},
+      body: JSON.stringify({{name: name}})
+    }});
+    const data = await res.json();
+    if (data.ok) {{
+      speakAlexaResponse(data.spoken_summary);
+      setTimeout(() => window.location.reload(), 1500);
+    }} else {{
+      alert('Error: ' + (data.error || 'Toggle failed'));
+    }}
+  }} catch (e) {{
+    alert('Error connecting to server');
+  }}
 }}
 
 function toggleAddServiceModal() {{
@@ -2786,6 +3234,45 @@ async def api_add_person(request: Request) -> Response:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
 
 
+@mcp.custom_route("/api/toggle_autopay", methods=["POST"])
+async def api_toggle_autopay(request: Request) -> Response:
+    try:
+        body = await request.json()
+        nm = body.get("name", "")
+        en = body.get("enable")
+        res = toggle_autopay(name=nm, enable=en)
+        return JSONResponse(res)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+
+
+@mcp.custom_route("/api/pay_commitment", methods=["POST"])
+async def api_pay_commitment(request: Request) -> Response:
+    try:
+        body = await request.json()
+        nm = body.get("name", "")
+        res = pay_commitment_amazon_pay(name=nm)
+        return JSONResponse(res)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+
+
+@mcp.custom_route("/api/add_commitment", methods=["POST"])
+async def api_add_commitment(request: Request) -> Response:
+    try:
+        body = await request.json()
+        res = add_commitment(
+            name=body.get("name", ""),
+            amount=float(body.get("amount", 0)),
+            due_day=int(body.get("due_day", 1)),
+            category=body.get("category", "emi"),
+            autopay=bool(body.get("autopay", True)),
+        )
+        return JSONResponse(res)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+
+
 @mcp.custom_route("/api/simulate", methods=["POST"])
 async def simulate_voice(request: Request) -> Response:
     """Simulates an Alexa+ conversational agent turn dispatching to FastMCP tools with Hindi and Hinglish comprehension."""
@@ -2891,6 +3378,55 @@ async def simulate_voice(request: Request) -> Response:
         trace["arguments"] = {"person": target_person, "split_with": split_with_name, "amount": split_amt}
         trace["result"] = res
         return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": False, "mcp_trace": trace})
+
+    # Intent D: Total Household Monthly Burn
+    if any(k in prompt for k in ["burn", "total burn", "total expense", "total kharcha", "kul kharcha", "household burn", "monthly burn", "pura kharcha", "ghar ka kharcha"]):
+        res = total_household_burn(month=f"{d.year}-{d.month:02d}")
+        trace["tool"] = "total_household_burn"
+        trace["arguments"] = {"month": f"{d.year}-{d.month:02d}"}
+        trace["result"] = res
+        return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": False, "mcp_trace": trace})
+
+    # Intent E: Upcoming Reminders & EMIs Due
+    if any(k in prompt for k in ["reminder", "due", "upcoming", "emi due", "bills due", "kya bacha hai", "remind me", "this week", "next week", "any emi"]):
+        days_match = re.search(r"(\d+)\s*days?", prompt)
+        d_ahead = int(days_match.group(1)) if days_match else 7
+        res = upcoming_reminders(days_ahead=d_ahead)
+        trace["tool"] = "upcoming_reminders"
+        trace["arguments"] = {"days_ahead": d_ahead}
+        trace["result"] = res
+        return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": False, "mcp_trace": trace})
+
+    # Intent F: Toggle Amazon Pay AutoPay
+    if any(k in prompt for k in ["autopay", "auto pay", "mandate", "e-mandate"]):
+        enable = False if any(k in prompt for k in ["disable", "turn off", "stop", "band"]) else True
+        target_comm = "iPhone 16 Pro EMI"
+        if "rent" in prompt:
+            target_comm = "Flat Rent & Society"
+        elif "electricity" in prompt or "power" in prompt or "bijli" in prompt:
+            target_comm = "Tata Power Electricity"
+        elif "wifi" in prompt or "fiber" in prompt or "airtel" in prompt or "internet" in prompt:
+            target_comm = "Airtel Xstream Fiber"
+        res = toggle_autopay(name=target_comm, enable=enable)
+        trace["tool"] = "toggle_autopay"
+        trace["arguments"] = {"name": target_comm, "enable": enable}
+        trace["result"] = res
+        return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": True, "mcp_trace": trace})
+
+    # Intent G: Pay Commitment / EMI via Amazon Pay
+    if any(k in prompt for k in ["pay emi", "amazon pay", "pay bill", "pay iphone", "pay electricity", "pay rent", "chuka do", "bharo"]):
+        target_comm = "iPhone 16 Pro EMI"
+        if "rent" in prompt:
+            target_comm = "Flat Rent & Society"
+        elif "electricity" in prompt or "power" in prompt or "bijli" in prompt:
+            target_comm = "Tata Power Electricity"
+        elif "wifi" in prompt or "fiber" in prompt or "airtel" in prompt or "internet" in prompt:
+            target_comm = "Airtel Xstream Fiber"
+        res = pay_commitment_amazon_pay(name=target_comm)
+        trace["tool"] = "pay_commitment_amazon_pay"
+        trace["arguments"] = {"name": target_comm}
+        trace["result"] = res
+        return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": True, "mcp_trace": trace})
 
     # Intent routing simulation (Supports Hindi + English)
     # 1. Undo

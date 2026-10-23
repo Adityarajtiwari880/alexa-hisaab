@@ -22,6 +22,10 @@ Unlike conventional accounting applications that require active daily attendance
 - "Alexa, set up Ramesh (Cook) at 6,000 rupees a month with Sunday off."
 - "Alexa, what is my total household help balance for this month?"
 - "Alexa, what's my household summary for the year?"
+- "Alexa, any EMIs due this week?"
+- "Alexa, pay iPhone EMI on Amazon Pay."
+- "Alexa, what is my total household burn this month?"
+- "Alexa, enable AutoPay for iPhone EMI on Amazon Pay."
 - "Alexa, undo last entry."
 
 ## Architecture & Transport
@@ -106,8 +110,39 @@ Splits household bills (maid, cook, Wi-Fi) among flatmates or PG roommates. Prod
 - `split_with`: Names of flatmates (e.g., "Amit", "Rahul").
 - `amount`: Optional bill amount override (defaults to current balance).
 
+### 14. `list_commitments`
+Lists all recurring household fixed commitments, loan EMIs, rent, and utility bills with due dates, amounts, and Amazon Pay AutoPay e-mandate status.
+- `month`: Optional month string `YYYY-MM`.
+
+### 15. `add_commitment`
+Registers a new recurring fixed obligation (e.g. iPhone EMI, Flat Rent, Electricity) with Amazon Pay AutoPay settings.
+- `name`: Commitment title (e.g., "iPhone 16 Pro EMI").
+- `amount`: Monthly obligation amount (e.g., 4200.0).
+- `due_day`: Day of month due (1–31).
+- `category`: `emi`, `rent`, `utility_bill`, or `subscription`.
+- `autopay`: Boolean flag to activate Amazon Pay AutoPay e-mandate.
+- `provider`: AutoPay service provider (defaults to "Amazon Pay").
+
+### 16. `pay_commitment_amazon_pay`
+Initiates an instant 1-tap Amazon Pay payment for a fixed obligation. Generates UPI deep links, Amazon Pay native intent links, dynamic QR code, and updates payment receipt.
+- `name`: Commitment title or keyword (e.g. "iPhone", "Tata Power", "Rent").
+
+### 17. `toggle_autopay`
+Enables or disables Amazon Pay AutoPay e-mandates for an EMI or bill.
+- `name`: Commitment title.
+- `enable`: Optional boolean to explicitly enable or disable.
+
+### 18. `total_household_burn`
+Calculates comprehensive monthly household burn: combines variable domestic staff salaries, daily deliveries (milk, newspaper, water), piece-work (dhobi), and fixed commitments (EMIs, rent, bills). Also forecasts upcoming 7-day liquidity requirements to prevent AutoPay bounces.
+- `month`: Target month `YYYY-MM`.
+
+### 19. `upcoming_reminders`
+Scans for all EMIs, utility bills, and salary settlement dues in the next N days. Highlights whether payment is automated via Amazon Pay AutoPay or requires manual clearance.
+- `days_ahead`: Lookahead window in days (default: 7).
+
 ## Multi-Modal Output & Integrations
 - **Echo Show / Web Card**: Displays itemized ledger lines, pro-rated deductions, and live balance.
-- **Dynamic UPI QR Code**: Instant deep link `upi://pay?pa={upi_id}&pn={name}&am={balance}&tn=Salary` for 1-tap mobile payment.
+- **Amazon Pay AutoPay Badge**: Visual status indicator (🟢 AutoPay Active / ⚠️ Manual Pay) with instant toggle.
+- **Dynamic UPI & Amazon Pay QR Code**: Instant deep link `upi://pay?pa=amazonpay@apl&pn=...` and `amazonpay://pay?...` for 1-tap mobile payment.
 - **WhatsApp Webhook / Share**: Generates a pre-formatted itemized salary slip sent directly to staff via WhatsApp.
 - **Calendar Feed**: Live iCal subscription (`/h/{token}/calendar.ics`) synchronizing paydays and dynamic balances with Google Calendar or Apple Calendar.

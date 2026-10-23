@@ -3,7 +3,7 @@ Hisaab: A voice-first ledger for household help, served as an MCP server for Ale
 Production-ready build for the Amazon Developer Hackathon (Build, Ship, Shape).
 Supports:
 - Model Context Protocol (MCP) Streamable HTTP Transport (spec 2025-11-25+)
-- Alexa+ Echo Show Voice & Visual Simulator (with live Web Speech STT/TTS & MCP Inspector)
+- Ultra-Modern 3D Holographic Alexa+ Voice & Visual Simulator
 - 1-Tap Amazon Pay / UPI Settlement with Dynamic QR Code Generation
 - Present-by-default pro-rata wage calculations & 8-week habit pattern recognition
 - Multi-modal output: Spoken audio, HTML5 Cards, WhatsApp Slip, and iCal feed
@@ -611,152 +611,598 @@ def build_ics() -> str:
 
 PAGE_CSS = """
 :root {
-  --bg: #090e11;
-  --cardbg: #111a1e;
-  --ink: #e6edf0;
-  --mute: #82959e;
-  --rule: #1e2c33;
-  --accent: #00d2ff;
-  --accent-glow: rgba(0, 210, 255, 0.25);
-  --alexa-blue: #00a8e8;
-  --red: #ff6b6b;
-  --green: #2ecc71;
-  --btn: #00d2ff;
-  --btnink: #071318;
+  --bg-dark: #04080c;
+  --panel-bg: rgba(13, 21, 29, 0.72);
+  --panel-border: rgba(0, 210, 255, 0.18);
+  --panel-highlight: rgba(255, 255, 255, 0.08);
+  --text-main: #f0f6fa;
+  --text-muted: #8ba2b0;
+  --cyan-glow: #00d2ff;
+  --alexa-blue: #0084ff;
+  --neon-purple: #8a2be2;
+  --coral-red: #ff5757;
+  --emerald-green: #00e676;
+  --gold-accent: #ffb703;
 }
-* { box-sizing: border-box; }
-body {
-  margin: 0; background: var(--bg); color: var(--ink);
-  font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-}
-main { max-width: 42rem; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
 
-/* Echo Show / Alexa Simulator Header */
-.simulator-box {
-  background: linear-gradient(145deg, #101c23 0%, #0d161a 100%);
-  border: 1px solid #1a3240;
-  border-radius: 1.25rem;
-  padding: 1.5rem;
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg-dark);
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(0, 132, 255, 0.14) 0%, transparent 60%),
+    radial-gradient(circle at 10% 30%, rgba(0, 210, 255, 0.08) 0%, transparent 45%),
+    radial-gradient(circle at 90% 70%, rgba(138, 43, 226, 0.08) 0%, transparent 50%);
+  background-attachment: fixed;
+  color: var(--text-main);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+main {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 5rem;
+}
+
+/* Header Navigation Bar */
+.top-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 2rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.brand-group {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+.brand-title {
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, #ffffff 40%, #00d2ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.brand-tag {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.35rem 0.8rem;
+  border-radius: 9999px;
+  background: rgba(0, 230, 118, 0.08);
+  border: 1px solid rgba(0, 230, 118, 0.25);
+  color: var(--emerald-green);
+  letter-spacing: 0.02em;
+}
+.status-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--emerald-green);
+  box-shadow: 0 0 8px var(--emerald-green);
+  animation: pulse-dot 2s infinite ease-in-out;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.5; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+
+/* 3D Holographic Alexa Console */
+.alexa-hero-console {
   position: relative;
+  background: var(--panel-bg);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid var(--panel-border);
+  border-radius: 1.5rem;
+  padding: 2.25rem 1.75rem 1.75rem;
+  margin-bottom: 2.5rem;
+  box-shadow: 
+    0 24px 60px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 35px rgba(0, 210, 255, 0.08);
   overflow: hidden;
 }
-.simulator-box::before {
-  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-  background: linear-gradient(90deg, #00d2ff, #0077ff, #00d2ff);
+
+/* Cyber Shimmer Light Bar */
+.alexa-hero-console::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #00d2ff, #8a2be2, #00d2ff, transparent);
   background-size: 200% auto;
-  animation: shimmer 3s linear infinite;
+  animation: cyber-shimmer 4s linear infinite;
 }
-@keyframes shimmer { 0% { background-position: 0% 0; } 100% { background-position: 200% 0; } }
-
-.sim-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
-.sim-title { display: flex; align-items: center; gap: 0.75rem; font-weight: 700; font-size: 1.15rem; }
-.alexa-ring {
-  width: 22px; height: 22px; border-radius: 50%;
-  border: 3px solid #00d2ff;
-  box-shadow: 0 0 12px #00d2ff, inset 0 0 6px #00d2ff;
-  animation: pulse-ring 2s infinite ease-in-out;
-}
-@keyframes pulse-ring {
-  0%, 100% { transform: scale(1); opacity: 0.85; }
-  50% { transform: scale(1.15); opacity: 1; box-shadow: 0 0 18px #00d2ff; }
-}
-.sim-badge {
-  font-size: 0.75rem; padding: 0.25rem 0.65rem; border-radius: 2rem;
-  background: rgba(0, 210, 255, 0.12); color: #00d2ff; border: 1px solid rgba(0, 210, 255, 0.3);
-  font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+@keyframes cyber-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
-/* Voice Input & Quick Chips */
-.voice-row { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
-.voice-input {
-  flex: 1; background: #080d10; border: 1px solid #1e2c33; border-radius: 0.5rem;
-  padding: 0.65rem 0.85rem; color: #fff; font-size: 0.95rem;
+/* 3D Orb Stage */
+.orb-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 1.25rem;
 }
-.voice-input:focus { outline: none; border-color: #00d2ff; }
-.mic-btn {
-  background: #00d2ff; color: #071318; border: none; border-radius: 0.5rem;
-  padding: 0 1rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 0.4rem;
-  transition: transform 0.15s, opacity 0.15s;
-}
-.mic-btn:hover { opacity: 0.9; }
-.mic-btn:active { transform: scale(0.97); }
-
-.chips-label { font-size: 0.8rem; color: var(--mute); margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.04em; }
-.chips-wrap { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.chip {
-  background: #152228; border: 1px solid #233742; border-radius: 2rem;
-  padding: 0.35rem 0.75rem; color: #d0dfe6; font-size: 0.82rem; cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-.chip:hover { background: #1c303a; border-color: #00d2ff; color: #fff; }
-
-/* Spoken Response Balloon */
-.alexa-speech-box {
-  background: #080d10; border-left: 3px solid #00d2ff; border-radius: 0 0.5rem 0.5rem 0;
-  padding: 0.75rem 1rem; margin-top: 1rem; font-size: 0.95rem; line-height: 1.45;
-  color: #cbe3eb; display: flex; align-items: flex-start; gap: 0.65rem;
-}
-.alexa-speech-box i { font-style: normal; color: #00d2ff; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; }
-
-/* Protocol Inspector */
-details.inspector { margin-top: 0.75rem; font-size: 0.8rem; }
-details.inspector summary { color: var(--mute); cursor: pointer; user-select: none; }
-details.inspector pre {
-  background: #05080a; padding: 0.6rem; border-radius: 0.4rem;
-  color: #2ecc71; overflow-x: auto; font-family: ui-monospace, monospace; margin: 0.4rem 0 0;
+.orb-viewport {
+  width: 140px;
+  height: 140px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 900px;
 }
 
-/* Ledger Cards */
-section.ledger-card {
-  background: var(--cardbg); border: 1px solid var(--rule); border-radius: 1.15rem;
-  padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+/* The Core Glowing Sphere */
+.orb-core {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  position: absolute;
+  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #00d2ff 35%, #0062ff 70%, #0b1528 100%);
+  box-shadow: 
+    0 0 25px rgba(0, 210, 255, 0.8),
+    0 0 55px rgba(0, 132, 255, 0.4),
+    inset -8px -8px 18px rgba(0, 0, 0, 0.85),
+    inset 5px 5px 12px rgba(255, 255, 255, 0.7);
+  animation: float-orb 4s ease-in-out infinite;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s;
 }
-h2 {
-  font-size: 1.25rem; margin: 0 0 1rem; display: flex; justify-content: space-between;
-  align-items: baseline; border-bottom: 1px solid var(--rule); padding-bottom: 0.75rem;
-}
-h2 span { font-size: 0.9rem; color: var(--mute); font-weight: 500; }
-.row { display: flex; align-items: baseline; gap: 0.5rem; padding: 0.35rem 0; }
-.row i { flex: 1; border-bottom: 1px dotted var(--rule); opacity: 0.6; transform: translateY(-0.25rem); }
-.row b { font-variant-numeric: tabular-nums; font-weight: 600; }
-.total {
-  margin-top: 0.85rem; padding-top: 0.85rem; border-top: 2px solid var(--rule);
-  font-size: 1.5rem; font-weight: 800;
-}
-.total .amt { color: var(--red); }
-.note { color: var(--mute); font-size: 0.85rem; margin: 0.65rem 0 0; line-height: 1.4; }
-.habit { color: #f1c40f; font-size: 0.88rem; margin-top: 0.6rem; font-weight: 500; }
-.warn { color: var(--red); font-weight: 600; margin: 0.65rem 0 0; font-size: 0.88rem; }
 
-/* Action Buttons & UPI Modal */
-.actions { margin-top: 1.25rem; display: flex; gap: 0.65rem; flex-wrap: wrap; }
-a.btn, button.btn {
-  display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.65rem 1.1rem;
-  border-radius: 0.5rem; background: var(--btn); color: var(--btnink);
-  text-decoration: none; font-weight: 600; border: none; cursor: pointer; font-size: 0.9rem;
-  transition: opacity 0.15s, transform 0.15s;
+/* 3D Gyroscope Ring 1 */
+.orb-ring-1 {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  position: absolute;
+  border: 2px solid rgba(0, 210, 255, 0.65);
+  box-shadow: 0 0 14px rgba(0, 210, 255, 0.45);
+  transform-style: preserve-3d;
+  animation: rotate-ring-1 6s linear infinite;
 }
-a.btn:hover, button.btn:hover { opacity: 0.9; }
-a.btn:active, button.btn:active { transform: scale(0.97); }
-a.btn.alt, button.btn.alt { background: #1a2830; color: #d0dfe6; border: 1px solid #233742; }
-a.btn.wa { background: #25d366; color: #04200e; }
-a.btn.upi { background: linear-gradient(135deg, #ff9900, #ffaa22); color: #111; font-weight: 700; }
+@keyframes rotate-ring-1 {
+  0% { transform: rotateX(65deg) rotateY(0deg); }
+  100% { transform: rotateX(65deg) rotateY(360deg); }
+}
 
-.upi-drawer {
-  margin-top: 1rem; padding: 1rem; background: #0a1114; border: 1px solid #1a2d37;
-  border-radius: 0.75rem; display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;
+/* 3D Gyroscope Ring 2 */
+.orb-ring-2 {
+  width: 126px;
+  height: 126px;
+  border-radius: 50%;
+  position: absolute;
+  border: 1.5px dashed rgba(138, 43, 226, 0.6);
+  box-shadow: 0 0 16px rgba(138, 43, 226, 0.35);
+  transform-style: preserve-3d;
+  animation: rotate-ring-2 9s linear infinite reverse;
 }
-.upi-qr {
-  width: 130px; height: 130px; border-radius: 0.5rem; background: #fff; padding: 5px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+@keyframes rotate-ring-2 {
+  0% { transform: rotateX(115deg) rotateY(0deg); }
+  100% { transform: rotateX(115deg) rotateY(360deg); }
 }
-.upi-details { flex: 1; min-width: 160px; font-size: 0.88rem; }
-.upi-details b { color: #fff; font-size: 1rem; }
 
-footer { color: var(--mute); font-size: 0.88rem; border-top: 1px solid var(--rule); padding-top: 1.5rem; margin-top: 2rem; }
-code { word-break: break-all; background: rgba(255,255,255,0.08); padding: 0.15rem 0.35rem; border-radius: 0.25rem; }
+@keyframes float-orb {
+  0%, 100% { transform: translateY(0px) scale(1); }
+  50% { transform: translateY(-7px) scale(1.02); }
+}
+
+/* Audio Waveform Canvas */
+.wave-canvas {
+  width: 220px;
+  height: 38px;
+  margin-top: 0.25rem;
+  opacity: 0.85;
+}
+
+/* Voice Input Controls */
+.input-dock {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+.voice-textbox {
+  flex: 1;
+  background: rgba(4, 8, 12, 0.85);
+  border: 1px solid rgba(0, 210, 255, 0.25);
+  border-radius: 0.75rem;
+  padding: 0.8rem 1.1rem;
+  color: #fff;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+}
+.voice-textbox:focus {
+  outline: none;
+  border-color: var(--cyan-glow);
+  box-shadow: 0 0 15px rgba(0, 210, 255, 0.3), inset 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.action-btn-primary {
+  background: linear-gradient(135deg, #00d2ff 0%, #0077ff 100%);
+  color: #040c12;
+  font-weight: 700;
+  border: none;
+  border-radius: 0.75rem;
+  padding: 0 1.25rem;
+  font-size: 0.92rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  box-shadow: 0 4px 15px rgba(0, 210, 255, 0.3);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.action-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 22px rgba(0, 210, 255, 0.5);
+}
+.action-btn-primary:active {
+  transform: scale(0.97);
+}
+
+/* Quick Voice Trigger Capsules */
+.trigger-section {
+  margin-top: 1.25rem;
+}
+.trigger-header {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 0.6rem;
+  font-weight: 700;
+}
+.trigger-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.trigger-pill {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: #cbe3eb;
+  font-size: 0.83rem;
+  font-weight: 500;
+  padding: 0.42rem 0.85rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+}
+.trigger-pill:hover {
+  background: rgba(0, 210, 255, 0.12);
+  border-color: rgba(0, 210, 255, 0.4);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+/* Holographic Alexa Spoken Response Bubble */
+.hologram-bubble {
+  margin-top: 1.25rem;
+  background: rgba(0, 16, 28, 0.9);
+  border-left: 3px solid var(--cyan-glow);
+  border-radius: 0 0.85rem 0.85rem 0;
+  padding: 0.9rem 1.15rem;
+  font-size: 0.96rem;
+  line-height: 1.5;
+  color: #e3f4fc;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+.bubble-speaker {
+  font-weight: 800;
+  color: var(--cyan-glow);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-right: 0.4rem;
+}
+
+/* MCP Real-time Inspector Terminal Tray */
+.inspector-tray {
+  margin-top: 1rem;
+  font-size: 0.82rem;
+}
+.inspector-tray summary {
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.inspector-tray summary:hover {
+  color: var(--cyan-glow);
+}
+.inspector-code {
+  background: #020508;
+  border: 1px solid rgba(0, 210, 255, 0.15);
+  border-radius: 0.65rem;
+  padding: 0.85rem;
+  color: #00e676;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem;
+  overflow-x: auto;
+  margin-top: 0.5rem;
+  line-height: 1.45;
+}
+
+/* Premium Staff Ledger Cards */
+.cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.staff-card {
+  background: var(--panel-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.4rem;
+  padding: 1.75rem;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  position: relative;
+  transition: border-color 0.25s, transform 0.25s;
+}
+.staff-card:hover {
+  border-color: rgba(0, 210, 255, 0.3);
+  transform: translateY(-2px);
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 1rem;
+  margin-bottom: 1.25rem;
+}
+.card-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+.staff-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #00d2ff, #8a2be2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(0, 210, 255, 0.35);
+}
+.staff-names h2 {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.staff-names p {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+.month-badge {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.3rem 0.75rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Ledger Breakdown Rows */
+.ledger-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.4rem 0;
+  font-size: 0.95rem;
+}
+.ledger-label { color: var(--text-muted); }
+.ledger-dotted {
+  flex: 1;
+  border-bottom: 1px dotted rgba(255, 255, 255, 0.15);
+  transform: translateY(-0.3rem);
+}
+.ledger-val {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.val-neg { color: var(--coral-red); }
+.val-pos { color: var(--emerald-green); }
+
+/* Prominent 'To Pay' Block */
+.total-block {
+  margin-top: 1.1rem;
+  padding: 1.1rem;
+  background: linear-gradient(135deg, rgba(0, 210, 255, 0.08) 0%, rgba(0, 119, 255, 0.04) 100%);
+  border: 1px solid rgba(0, 210, 255, 0.22);
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.total-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.total-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+.total-amount {
+  font-size: 1.95rem;
+  font-weight: 900;
+  color: #ff6b6b;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Habit & Warning Chips */
+.habit-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+  padding: 0.65rem 0.95rem;
+  background: rgba(255, 183, 3, 0.08);
+  border: 1px solid rgba(255, 183, 3, 0.25);
+  border-radius: 0.75rem;
+  font-size: 0.88rem;
+  color: #ffd166;
+  font-weight: 500;
+}
+.warning-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+  padding: 0.65rem 0.95rem;
+  background: rgba(255, 87, 87, 0.08);
+  border: 1px solid rgba(255, 87, 87, 0.28);
+  border-radius: 0.75rem;
+  font-size: 0.88rem;
+  color: #ff8585;
+  font-weight: 600;
+}
+
+/* Card Action Buttons */
+.card-actions {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  margin-top: 1.25rem;
+}
+.btn-upi {
+  background: linear-gradient(135deg, #ff9900 0%, #ff6600 100%);
+  color: #0b0f14;
+  font-weight: 800;
+  border: none;
+  border-radius: 0.65rem;
+  padding: 0.7rem 1.15rem;
+  font-size: 0.92rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  box-shadow: 0 4px 16px rgba(255, 153, 0, 0.35);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.btn-upi:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255, 153, 0, 0.5); }
+.btn-upi:active { transform: scale(0.97); }
+
+.btn-whatsapp {
+  background: rgba(37, 211, 102, 0.12);
+  border: 1px solid rgba(37, 211, 102, 0.35);
+  color: #25d366;
+  font-weight: 700;
+  border-radius: 0.65rem;
+  padding: 0.7rem 1.15rem;
+  font-size: 0.92rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: all 0.2s;
+}
+.btn-whatsapp:hover {
+  background: #25d366;
+  color: #05140b;
+  box-shadow: 0 4px 16px rgba(37, 211, 102, 0.35);
+  transform: translateY(-2px);
+}
+
+/* Dynamic UPI Drawer */
+.upi-expansion-card {
+  margin-top: 1.25rem;
+  background: #020609;
+  border: 1px solid rgba(255, 153, 0, 0.25);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  animation: slide-down 0.25s ease-out;
+}
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.upi-qr-image {
+  width: 140px;
+  height: 140px;
+  background: #fff;
+  border-radius: 0.75rem;
+  padding: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+}
+.upi-pay-info {
+  flex: 1;
+  min-width: 180px;
+}
+.upi-pay-info b { font-size: 1.05rem; color: #fff; }
+.upi-handle-tag {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.35rem;
+  font-family: monospace;
+  margin-top: 0.35rem;
+  color: #00d2ff;
+}
+
+/* Footer Section */
+footer {
+  margin-top: 3.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.footer-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  padding: 0.55rem 1rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  font-weight: 600;
+  width: fit-content;
+  transition: all 0.2s;
+}
+.footer-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #00d2ff;
+}
 """
 
 
@@ -791,118 +1237,188 @@ def render_page(request: Request) -> str:
                 rows.append(("Already paid", -m["salary_paid"]))
 
             lines = "".join(
-                f'<div class="row"><span>{escape(label)}</span><i></i><b>{"-" if v < 0 else ""}{SYMBOL}{money(abs(v))}</b></div>'
+                f'<div class="ledger-row"><span class="ledger-label">{escape(label)}</span><i class="ledger-dotted"></i>'
+                f'<b class="ledger-val {"val-neg" if v < 0 else "val-pos" if v > 0 and "Bonus" in label else ""}">'
+                f'{"-" if v < 0 else ""}{SYMBOL}{money(abs(v))}</b></div>'
                 for label, v in rows
             )
-            extra = ""
+
+            extra_html = ""
             if m["advance_warning"]:
-                extra += f'<p class="warn">Advances exceed safety limit of {SYMBOL}{money(m["advance_limit"])}.</p>'
+                extra_html += f'<div class="warning-badge">⚠️ Advances ({SYMBOL}{money(m["advances"])}) exceed the safety limit of {SYMBOL}{money(m["advance_limit"])}.</div>'
             if m["absent_dates"]:
-                days = ", ".join(date.fromisoformat(d).strftime("%d %b") for d in m["absent_dates"])
-                extra += f'<p class="note">Absent on: {escape(days)}</p>'
+                days_txt = ", ".join(date.fromisoformat(d).strftime("%d %b") for d in m["absent_dates"])
+                extra_html += f'<p style="font-size:0.84rem; color:var(--text-muted); margin-top:0.6rem;">Absent on: {escape(days_txt)}</p>'
             pat = pattern_note(conn, p)
             if pat:
-                extra += f'<p class="habit">💡 Habit detected: {escape(pat)}</p>'
+                extra_html += f'<div class="habit-badge">💡 Habit Detected: {escape(pat)}</div>'
 
             wa = "https://wa.me/?text=" + urllib.parse.quote(slip_text(p, m))
             p_id = p["id"]
+            initials = "".join([part[0].upper() for part in p["name"].split()[:2]]) or "S"
 
-            upi_box = f"""
-            <div id="upi-box-{p_id}" class="upi-drawer">
-              <img class="upi-qr" src="{escape(m['qr_url'])}" alt="Amazon Pay / UPI QR Code" />
-              <div class="upi-details">
+            upi_drawer_html = f"""
+            <div id="upi-drawer-{p_id}" class="upi-expansion-card" style="display:none;">
+              <img class="upi-qr-image" src="{escape(m['qr_url'])}" alt="Amazon Pay / UPI QR Code" />
+              <div class="upi-pay-info">
                 <b>Pay {escape(p['name'])} via Amazon Pay / UPI</b><br/>
-                <span class="note">Amount: {SYMBOL}{money(m['balance'])} • Handle: <code>{escape(m['upi_id'])}</code></span><br/><br/>
-                <a class="btn upi" href="{escape(m['upi_url'])}">Open UPI App</a>
-                <button class="btn alt" onclick="recordUpiPayment('{escape(p['name'])}')">Mark as Paid</button>
+                <span class="upi-handle-tag">{escape(m['upi_id'])}</span><br/><br/>
+                <span style="font-size:0.86rem; color:var(--text-muted)">Amount due: <b style="color:#fff">{SYMBOL}{money(m['balance'])}</b></span><br/><br/>
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap">
+                  <a class="action-btn-primary" href="{escape(m['upi_url'])}" style="text-decoration:none; padding:0.5rem 1rem;">Open UPI App</a>
+                  <button class="trigger-pill" style="padding:0.5rem 1rem;" onclick="markSalaryPaid('{escape(p['name'])}')">✓ Mark as Paid</button>
+                </div>
               </div>
             </div>
             """
 
             blocks.append(
-                f'<section class="ledger-card" id="card-{p_id}">'
-                f'<h2>{escape(p["name"])}<span>{month_label(now.year, now.month)}</span></h2>'
-                f'{lines}'
-                f'<div class="total"><div class="row"><span>To pay</span><i></i>'
-                f'<span class="amt">{SYMBOL}{money(m["balance"])}</span></div></div>'
-                f'<p class="note">Counting {escape(p["name"])} present on every other working day.</p>'
-                f'{extra}'
-                f'<div class="actions">'
-                f'<a class="btn wa" href="{wa}" target="_blank" rel="noopener">Send slip on WhatsApp</a>'
-                f'<button class="btn upi" onclick="toggleUpi({p_id})">Pay with Amazon Pay / UPI</button>'
+                f'<div class="staff-card" id="card-{p_id}">'
+                f'  <div class="card-header">'
+                f'    <div class="card-profile">'
+                f'      <div class="staff-avatar">{escape(initials)}</div>'
+                f'      <div class="staff-names">'
+                f'        <h2>{escape(p["name"])}</h2>'
+                f'        <p>Active • Present by default ({WEEKDAYS[p["weekly_off"]].title() if p["weekly_off"] >= 0 else "No"} Off)</p>'
+                f'      </div>'
+                f'    </div>'
+                f'    <span class="month-badge">{month_label(now.year, now.month)}</span>'
+                f'  </div>'
+                f'  <div class="ledger-breakdown">{lines}</div>'
+                f'  <div class="total-block">'
+                f'    <div>'
+                f'      <div class="total-title">Balance to Pay</div>'
+                f'      <div class="total-subtitle">Defaulting present on remaining workdays</div>'
+                f'    </div>'
+                f'    <div class="total-amount">{SYMBOL}{money(m["balance"])}</div>'
+                f'  </div>'
+                f'  {extra_html}'
+                f'  <div class="card-actions">'
+                f'    <button class="btn-upi" onclick="toggleUpiDrawer({p_id})">💳 Pay with Amazon Pay / UPI</button>'
+                f'    <a class="btn-whatsapp" href="{wa}" target="_blank" rel="noopener">💬 Send Slip on WhatsApp</a>'
+                f'  </div>'
+                f'  {upi_drawer_html}'
                 f'</div>'
-                f'{upi_box}'
-                f'</section>'
             )
 
     if not blocks:
-        blocks.append("<section class=\"ledger-card\"><p>No staff are set up yet. Use the Alexa+ console above to say: <em>set up Sunita at 9000 rupees a month</em>.</p></section>")
+        blocks.append(
+            '<div class="staff-card"><p style="color:var(--text-muted)">No staff registered yet. Speak to Alexa above to set up: '
+            '<em>"Set up Sunita at 9000 rupees a month"</em>.</p></div>'
+        )
 
     page_html = f"""<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Hisaab — Alexa+ Household Ledger</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hisaab — Alexa+ Voice Ledger</title>
   <style>{PAGE_CSS}</style>
 </head>
 <body>
 <main>
-  <!-- Alexa+ Echo Show Voice Simulator -->
-  <div class="simulator-box">
-    <div class="sim-header">
-      <div class="sim-title">
-        <div class="alexa-ring" id="alexaRing"></div>
-        <span>Alexa+ Echo Show Simulator</span>
+  <!-- Top Navigation -->
+  <header class="top-nav">
+    <div class="brand-group">
+      <h1 class="brand-title">Hisaab</h1>
+      <span class="brand-tag">Alexa+ Household Ledger</span>
+    </div>
+    <div class="status-pill">
+      <div class="status-pulse"></div>
+      <span>Streamable HTTP /mcp</span>
+    </div>
+  </header>
+
+  <!-- 3D Holographic Alexa+ Console -->
+  <section class="alexa-hero-console">
+    <div class="orb-stage">
+      <div class="orb-viewport" id="orbViewport">
+        <div class="orb-ring-2" id="orbRing2"></div>
+        <div class="orb-ring-1" id="orbRing1"></div>
+        <div class="orb-core" id="orbCore"></div>
       </div>
-      <span class="sim-badge">Streamable HTTP /mcp</span>
+      <canvas class="wave-canvas" id="waveCanvas" width="220" height="38"></canvas>
     </div>
 
-    <div class="voice-row">
-      <input type="text" id="voiceInput" class="voice-input" placeholder="Say or type e.g., 'How much do I owe Sunita?'" />
-      <button class="mic-btn" id="micBtn" onclick="toggleMic()">🎙️ Speak</button>
-      <button class="btn" onclick="sendVoicePrompt()">Ask</button>
+    <!-- Voice Input Dock -->
+    <div class="input-dock">
+      <input type="text" id="voiceInput" class="voice-textbox" placeholder="Say or type: 'How much do I owe Sunita?'" />
+      <button class="action-btn-primary" id="micBtn" onclick="toggleMic()">🎙️ Speak</button>
+      <button class="action-btn-primary" onclick="sendVoicePrompt()">Ask</button>
     </div>
 
-    <div class="chips-label">Quick Voice Triggers for Testing:</div>
-    <div class="chips-wrap">
-      <button class="chip" onclick="quickAsk('How much do I owe Sunita?')">🎙️ How much do I owe Sunita?</button>
-      <button class="chip" onclick="quickAsk('Sunita took a half day today')">🎙️ Sunita took a half day today</button>
-      <button class="chip" onclick="quickAsk('Give 2000 rupees advance to Sunita')">🎙️ Give 2000 rupees advance to Sunita</button>
-      <button class="chip" onclick="quickAsk('Pay Sunita salary with Amazon Pay')">🎙️ Pay Sunita with Amazon Pay</button>
-      <button class="chip" onclick="quickAsk('Undo last entry')">🎙️ Undo last entry</button>
+    <!-- Quick Test Prompts -->
+    <div class="trigger-section">
+      <div class="trigger-header">Quick Voice Triggers for Testing:</div>
+      <div class="trigger-grid">
+        <button class="trigger-pill" onclick="quickAsk('How much do I owe Sunita?')">🎙️ How much do I owe Sunita?</button>
+        <button class="trigger-pill" onclick="quickAsk('Sunita took a half day today')">🎙️ Sunita took a half day today</button>
+        <button class="trigger-pill" onclick="quickAsk('Give 2000 rupees advance to Sunita')">🎙️ Give 2000 rupees advance to Sunita</button>
+        <button class="trigger-pill" onclick="quickAsk('Pay Sunita salary with Amazon Pay')">🎙️ Pay Sunita with Amazon Pay</button>
+        <button class="trigger-pill" onclick="quickAsk('Undo last entry')">🎙️ Undo last entry</button>
+      </div>
     </div>
 
-    <div class="alexa-speech-box" id="speechBox">
-      <i>Alexa</i>: <span id="speechText">"Hisaab is ready. Ask me about your staff attendance, salary balances, or advances."</span>
+    <!-- Alexa Spoken Speech Bubble -->
+    <div class="hologram-bubble">
+      <span class="bubble-speaker">Alexa</span>
+      <span id="speechText">"Hisaab is active. Speak a command or tap a prompt above."</span>
     </div>
 
-    <details class="inspector" id="inspectorBox">
-      <summary>🔍 MCP Protocol Inspector (Streamable HTTP JSON-RPC)</summary>
-      <pre id="mcpJsonLog">Ready to inspect MCP requests...</pre>
+    <!-- Real-time MCP Inspector -->
+    <details class="inspector-tray">
+      <summary>⚡ MCP Streamable HTTP Protocol Inspector (JSON-RPC 2.0)</summary>
+      <pre class="inspector-code" id="mcpJsonLog">// Streamable HTTP session active at /mcp
+// Ready to trace JSON-RPC calls...</pre>
     </details>
-  </div>
+  </section>
 
-  <h1>Hisaab</h1>
-  <p class="note" style="margin-bottom:1.5rem">Voice-first household ledger as of {now.strftime("%d %B %Y")}.</p>
-
-  <div id="ledgerCardsContainer">
+  <!-- Staff Ledger Section -->
+  <div class="cards-container">
     {"".join(blocks)}
   </div>
 
+  <!-- Footer Sync -->
   <footer>
-    <p>Paydays, absences and balances sync with your calendar automatically.</p>
-    <div class="actions">
-      <a class="btn alt" href="{gcal}" target="_blank" rel="noopener">Add to Google Calendar</a>
-    </div>
-    <p class="note">Calendar feed URL: <code>{escape(cal_url)}</code></p>
-    <p class="note">MCP Streamable HTTP Endpoint: <code>{escape(b_url)}/mcp</code></p>
+    <p>Paydays, absences, and pro-rata balances sync live with your calendar.</p>
+    <a class="footer-btn" href="{gcal}" target="_blank" rel="noopener">📅 Subscribe in Google Calendar</a>
+    <p style="font-size:0.8rem; color:var(--text-muted)">iCalendar feed: <code>{escape(cal_url)}</code></p>
+    <p style="font-size:0.8rem; color:var(--text-muted)">MCP Endpoint: <code>{escape(b_url)}/mcp</code></p>
   </footer>
 </main>
 
 <script>
+// ------------------------------------------------------------- 3D Audio Visualizer
+const canvas = document.getElementById('waveCanvas');
+const ctx = canvas.getContext('2d');
+let waveStep = 0;
+let isAudioActive = false;
+
+function drawWave() {{
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const mid = canvas.height / 2;
+  const amp = isAudioActive ? 12 : 3;
+
+  ctx.beginPath();
+  ctx.strokeStyle = isAudioActive ? '#00d2ff' : 'rgba(0, 210, 255, 0.35)';
+  ctx.lineWidth = isAudioActive ? 2.5 : 1.5;
+
+  for (let x = 0; x < canvas.width; x++) {{
+    const y = mid + Math.sin((x * 0.05) + waveStep) * amp * Math.sin((x / canvas.width) * Math.PI);
+    if (x === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }}
+  ctx.stroke();
+
+  waveStep += isAudioActive ? 0.18 : 0.04;
+  requestAnimationFrame(drawWave);
+}}
+drawWave();
+
+// ------------------------------------------------------------- Voice Recognition & Simulator
 let recognizing = false;
 let recognition = null;
+const orbCore = document.getElementById('orbCore');
 
 if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {{
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -913,33 +1429,34 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {{
 
   recognition.onstart = () => {{
     recognizing = true;
+    isAudioActive = true;
     document.getElementById('micBtn').innerText = '🔴 Listening...';
-    document.getElementById('alexaRing').style.boxShadow = '0 0 25px #00d2ff';
+    orbCore.style.boxShadow = '0 0 45px #00d2ff, 0 0 85px rgba(0, 210, 255, 0.8)';
+    orbCore.style.transform = 'scale(1.15)';
   }};
 
   recognition.onresult = (e) => {{
-    const transcript = e.results[0][0].transcript;
-    document.getElementById('voiceInput').value = transcript;
-    sendVoicePrompt(transcript);
+    const text = e.results[0][0].transcript;
+    document.getElementById('voiceInput').value = text;
+    sendVoicePrompt(text);
   }};
 
   recognition.onend = () => {{
     recognizing = false;
+    isAudioActive = false;
     document.getElementById('micBtn').innerText = '🎙️ Speak';
-    document.getElementById('alexaRing').style.boxShadow = '0 0 12px #00d2ff';
+    orbCore.style.boxShadow = '0 0 25px rgba(0, 210, 255, 0.8), 0 0 55px rgba(0, 132, 255, 0.4)';
+    orbCore.style.transform = 'scale(1)';
   }};
 }}
 
 function toggleMic() {{
   if (!recognition) {{
-    alert("Speech recognition isn't supported in this browser. Please type in the input box.");
+    alert("Speech recognition isn't supported in this browser. Please type into the box.");
     return;
   }}
-  if (recognizing) {{
-    recognition.stop();
-  }} else {{
-    recognition.start();
-  }}
+  if (recognizing) recognition.stop();
+  else recognition.start();
 }}
 
 function quickAsk(text) {{
@@ -953,7 +1470,8 @@ async function sendVoicePrompt(customText) {{
 
   const speechText = document.getElementById('speechText');
   const mcpJsonLog = document.getElementById('mcpJsonLog');
-  speechText.innerText = "Processing via Alexa+ & FastMCP...";
+  speechText.innerText = "Processing via Alexa+ Agent Core over Streamable HTTP...";
+  isAudioActive = true;
 
   try {{
     const resp = await fetch('/api/simulate', {{
@@ -966,32 +1484,36 @@ async function sendVoicePrompt(customText) {{
     speechText.innerText = `"${{data.spoken_summary}}"`;
     mcpJsonLog.innerText = JSON.stringify(data.mcp_trace, null, 2);
 
-    // Speak aloud using Web Speech Synthesis
+    // Speak response via browser TTS
     if ('speechSynthesis' in window) {{
       window.speechSynthesis.cancel();
       const utter = new SpeechSynthesisUtterance(data.spoken_summary);
       utter.rate = 1.0;
       utter.pitch = 1.05;
+      utter.onend = () => {{ isAudioActive = false; }};
       window.speechSynthesis.speak(utter);
+    }} else {{
+      isAudioActive = false;
     }}
 
-    // Auto-reload to reflect database state changes
+    // Auto-reload on data mutation
     if (data.mutated) {{
-      setTimeout(() => window.location.reload(), 1400);
+      setTimeout(() => window.location.reload(), 1600);
     }}
   }} catch (err) {{
     speechText.innerText = "Connection error to Hisaab MCP server.";
+    isAudioActive = false;
   }}
 }}
 
-function toggleUpi(id) {{
-  const el = document.getElementById('upi-box-' + id);
+function toggleUpiDrawer(id) {{
+  const el = document.getElementById('upi-drawer-' + id);
   if (el) {{
     el.style.display = (el.style.display === 'none' || !el.style.display) ? 'flex' : 'none';
   }}
 }}
 
-function recordUpiPayment(person) {{
+function markSalaryPaid(person) {{
   quickAsk(`Pay ${{person}} salary with Amazon Pay`);
 }}
 </script>

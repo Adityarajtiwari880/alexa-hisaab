@@ -69,6 +69,9 @@ CREATE TABLE IF NOT EXISTS people(
   advance_limit_pct REAL NOT NULL DEFAULT 50,
   pay_day INTEGER NOT NULL DEFAULT 1,
   upi_id TEXT NOT NULL DEFAULT '',
+  category TEXT NOT NULL DEFAULT 'staff',
+  item_detail TEXT NOT NULL DEFAULT '',
+  icon TEXT NOT NULL DEFAULT '👥',
   active INTEGER NOT NULL DEFAULT 1
 );
 CREATE TABLE IF NOT EXISTS events(
@@ -90,10 +93,16 @@ def db():
     conn = sqlite3.connect(os.environ.get("HISAAB_DB", "hisaab.db"))
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA)
-    try:
-        conn.execute("ALTER TABLE people ADD COLUMN upi_id TEXT NOT NULL DEFAULT ''")
-    except sqlite3.OperationalError:
-        pass
+    for col_sql in [
+        "ALTER TABLE people ADD COLUMN upi_id TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE people ADD COLUMN category TEXT NOT NULL DEFAULT 'staff'",
+        "ALTER TABLE people ADD COLUMN item_detail TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE people ADD COLUMN icon TEXT NOT NULL DEFAULT '👥'",
+    ]:
+        try:
+            conn.execute(col_sql)
+        except sqlite3.OperationalError:
+            pass
     try:
         yield conn
         conn.commit()
@@ -102,59 +111,85 @@ def db():
 
 
 def ensure_seed_data():
-    """Populates a rich household staff ecosystem if database is sparse."""
+    """Populates a rich household ecosystem: domestic staff, milk deliveries, and newspaper subscriptions."""
     db_path = os.environ.get("HISAAB_DB", "hisaab.db")
     if "test" in db_path:
         return
     with db() as conn:
         count = conn.execute("SELECT count(*) as cnt FROM people").fetchone()["cnt"]
-        if count >= 3:
+        if count >= 6:
             return
 
         # 1. Sunita (Maid)
         conn.execute(
-            "INSERT INTO people(name, rate, unit, weekly_off, paid_leaves, pay_day, upi_id) VALUES (?,?,?,?,?,?,?) "
-            "ON CONFLICT(name) DO UPDATE SET rate=excluded.rate, unit=excluded.unit, upi_id=excluded.upi_id",
-            ("Sunita", 9000.0, "month", 6, 1.0, 1, "sunita@apl")
+            "INSERT INTO people(name, rate, unit, weekly_off, paid_leaves, pay_day, upi_id, category, item_detail, icon) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(name) DO UPDATE SET rate=excluded.rate, category=excluded.category, item_detail=excluded.item_detail, icon=excluded.icon",
+            ("Sunita", 9000.0, "month", 6, 1.0, 1, "sunita@apl", "staff", "Full-time Housekeeping & Cleaning", "🧹")
         )
         p_sunita = conn.execute("SELECT id FROM people WHERE name='Sunita'").fetchone()["id"]
         for d in ["2026-10-05", "2026-10-12", "2026-10-19"]:
-            conn.execute("INSERT INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
+            conn.execute("INSERT OR IGNORE INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
                          (p_sunita, d, "absent", 0, datetime.now(TZ).isoformat()))
-        conn.execute("INSERT INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
+        conn.execute("INSERT OR IGNORE INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
                      (p_sunita, "2026-10-23", "advance", 2000.0, datetime.now(TZ).isoformat()))
 
         # 2. Ramesh (Cook)
         conn.execute(
-            "INSERT INTO people(name, rate, unit, weekly_off, paid_leaves, pay_day, upi_id) VALUES (?,?,?,?,?,?,?) "
-            "ON CONFLICT(name) DO UPDATE SET rate=excluded.rate, unit=excluded.unit, upi_id=excluded.upi_id",
-            ("Ramesh", 6500.0, "month", 2, 1.0, 1, "ramesh.cook@upi")
+            "INSERT INTO people(name, rate, unit, weekly_off, paid_leaves, pay_day, upi_id, category, item_detail, icon) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(name) DO UPDATE SET rate=excluded.rate, category=excluded.category, item_detail=excluded.item_detail, icon=excluded.icon",
+            ("Ramesh", 6500.0, "month", 2, 1.0, 1, "ramesh.cook@upi", "staff", "Daily Breakfast & Dinner", "👨‍🍳")
         )
         p_ramesh = conn.execute("SELECT id FROM people WHERE name='Ramesh'").fetchone()["id"]
-        conn.execute("INSERT INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
+        conn.execute("INSERT OR IGNORE INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
                      (p_ramesh, "2026-10-14", "half_day", 0, datetime.now(TZ).isoformat()))
-        conn.execute("INSERT INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
+        conn.execute("INSERT OR IGNORE INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
                      (p_ramesh, "2026-10-10", "advance", 1000.0, datetime.now(TZ).isoformat()))
 
         # 3. Raju (Driver - Day Wage)
         conn.execute(
-            "INSERT INTO people(name, rate, unit, weekly_off, paid_leaves, pay_day, upi_id) VALUES (?,?,?,?,?,?,?) "
-            "ON CONFLICT(name) DO UPDATE SET rate=excluded.rate, unit=excluded.unit, upi_id=excluded.upi_id",
-            ("Raju", 600.0, "day", 6, 0.0, 1, "raju.driver@apl")
+            "INSERT INTO people(name, rate, unit, weekly_off, paid_leaves, pay_day, upi_id, category, item_detail, icon) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(name) DO UPDATE SET rate=excluded.rate, category=excluded.category, item_detail=excluded.item_detail, icon=excluded.icon",
+            ("Raju", 600.0, "day", 6, 0.0, 1, "raju.driver@apl", "staff", "Personal Car Commute (₹600/day)", "🚗")
         )
         p_raju = conn.execute("SELECT id FROM people WHERE name='Raju'").fetchone()["id"]
-        conn.execute("INSERT INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
+        conn.execute("INSERT OR IGNORE INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
                      (p_raju, "2026-10-06", "absent", 0, datetime.now(TZ).isoformat()))
-        conn.execute("INSERT INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
+        conn.execute("INSERT OR IGNORE INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
                      (p_raju, "2026-10-20", "absent", 0, datetime.now(TZ).isoformat()))
-        conn.execute("INSERT INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
+        conn.execute("INSERT OR IGNORE INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
                      (p_raju, "2026-10-15", "advance", 2500.0, datetime.now(TZ).isoformat()))
 
-        # 4. Anil (Milkman - Daily Delivery, No Off)
+        # 4. Country Delight (Daily Milk Supply)
         conn.execute(
-            "INSERT INTO people(name, rate, unit, weekly_off, paid_leaves, pay_day, upi_id) VALUES (?,?,?,?,?,?,?) "
-            "ON CONFLICT(name) DO UPDATE SET rate=excluded.rate, unit=excluded.unit, upi_id=excluded.upi_id",
-            ("Anil", 2800.0, "month", -1, 0.0, 1, "anil.dairy@upi")
+            "INSERT INTO people(name, rate, unit, weekly_off, paid_leaves, pay_day, upi_id, category, item_detail, icon) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(name) DO UPDATE SET rate=excluded.rate, category=excluded.category, item_detail=excluded.item_detail, icon=excluded.icon",
+            ("Country Delight", 2800.0, "month", -1, 0.0, 1, "milk.countrydelight@upi", "milk", "2 Litres Cow Milk Daily (₹68/day)", "🥛")
+        )
+        p_milk = conn.execute("SELECT id FROM people WHERE name='Country Delight'").fetchone()["id"]
+        conn.execute("INSERT OR IGNORE INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
+                     (p_milk, "2026-10-18", "absent", 0, datetime.now(TZ).isoformat()))
+
+        # 5. Times & Bhaskar (Daily Newspaper Subscription)
+        conn.execute(
+            "INSERT INTO people(name, rate, unit, weekly_off, paid_leaves, pay_day, upi_id, category, item_detail, icon) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(name) DO UPDATE SET rate=excluded.rate, category=excluded.category, item_detail=excluded.item_detail, icon=excluded.icon",
+            ("Times & Bhaskar", 380.0, "month", -1, 0.0, 1, "news.vendor@upi", "newspaper", "Times of India + Dainik Bhaskar Daily", "📰")
+        )
+        p_news = conn.execute("SELECT id FROM people WHERE name='Times & Bhaskar'").fetchone()["id"]
+        conn.execute("INSERT OR IGNORE INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
+                     (p_news, "2026-10-12", "absent", 0, datetime.now(TZ).isoformat()))
+
+        # 6. Bisleri 20L Water Jars (Daily/Unit Supply)
+        conn.execute(
+            "INSERT INTO people(name, rate, unit, weekly_off, paid_leaves, pay_day, upi_id, category, item_detail, icon) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(name) DO UPDATE SET rate=excluded.rate, category=excluded.category, item_detail=excluded.item_detail, icon=excluded.icon",
+            ("Bisleri 20L Water", 80.0, "day", -1, 0.0, 1, "water.vendor@apl", "utility", "20 Litre Bubble Top Jars (₹80/jar)", "💧")
         )
 
 
@@ -169,7 +204,6 @@ def today() -> date:
 
 def money(x: float) -> str:
     return f"{int(round(x)):,}"
-
 
 def spoken(x: float) -> str:
     return f"{money(x)} {WORD}"
@@ -1210,6 +1244,75 @@ main {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+
+/* Service Category Tabs & Add Modal */
+.cat-pill {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #c9e6f5;
+  font-size: 0.83rem;
+  font-weight: 600;
+  padding: 0.45rem 0.95rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.cat-pill:hover, .cat-pill.active {
+  background: rgba(0, 210, 255, 0.2);
+  border-color: #00d2ff;
+  color: #fff;
+  box-shadow: 0 0 12px rgba(0, 210, 255, 0.3);
+}
+.neural-badge {
+  display: inline-block;
+  background: rgba(0, 210, 255, 0.15);
+  border: 1px solid rgba(0, 210, 255, 0.4);
+  color: #00d2ff;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 0.35rem;
+  margin-right: 0.5rem;
+}
+.service-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.service-modal-card {
+  background: #06111e;
+  border: 1px solid rgba(0, 210, 255, 0.35);
+  border-radius: 1.4rem;
+  padding: 1.8rem;
+  max-width: 520px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 210, 255, 0.2);
+}
+.card-cat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #a0d8ef;
+  margin-left: 0.6rem;
+}
+
 /* Ledger Breakdown Rows */
 .ledger-row {
   display: flex;
@@ -1472,14 +1575,29 @@ def render_page(request: Request) -> str:
             </div>
             """
 
+            cat = p["category"] if ("category" in p.keys() and p["category"]) else "staff"
+            icon = p["icon"] if ("icon" in p.keys() and p["icon"]) else "👥"
+            detail = p["item_detail"] if ("item_detail" in p.keys() and p["item_detail"]) else "Household Service"
+            cat_label = "🧹 Staff" if cat == "staff" else "🥛 Milk / Dairy" if cat == "milk" else "📰 Newspaper" if cat == "newspaper" else "💧 Supplies"
+
+            # Specialized quick action buttons for daily deliveries
+            delivery_btns = ""
+            if cat == "milk":
+                delivery_btns = f'''<button class="prompt-btn" style="padding:0.4rem 0.8rem; font-size:0.8rem;" onclick="quickAsk('Milk not delivered today for {escape(p["name"])}')">❌ Skipped Today</button>
+                                  <button class="prompt-btn" style="padding:0.4rem 0.8rem; font-size:0.8rem;" onclick="quickAsk('Add 68 rupees extra milk for {escape(p["name"])}')">🥛 +Extra Milk</button>'''
+            elif cat == "newspaper":
+                delivery_btns = f'''<button class="prompt-btn" style="padding:0.4rem 0.8rem; font-size:0.8rem;" onclick="quickAsk('Pause newspaper today for {escape(p["name"])}')">⏸️ Vacation Hold</button>'''
+            elif cat == "utility":
+                delivery_btns = f'''<button class="prompt-btn" style="padding:0.4rem 0.8rem; font-size:0.8rem;" onclick="quickAsk('Water can delivered today for {escape(p["name"])}')">💧 +1 Can Delivered</button>'''
+
             blocks.append(
-                f'<div class="staff-card" id="card-{p_id}">'
+                f'<div class="staff-card" id="card-{p_id}" data-category="{escape(cat)}">'
                 f'  <div class="card-header">'
                 f'    <div class="card-profile">'
-                f'      <div class="staff-avatar">{escape(initials)}</div>'
+                f'      <div class="staff-avatar">{escape(icon)}</div>'
                 f'      <div class="staff-names">'
-                f'        <h2>{escape(p["name"])}</h2>'
-                f'        <p>{escape(rate_label)} • Present by default ({WEEKDAYS[p["weekly_off"]].title() if p["weekly_off"] >= 0 else "No"} Off)</p>'
+                f'        <h2>{escape(p["name"])} <span class="card-cat-badge">{escape(cat_label)}</span></h2>'
+                f'        <p>{escape(rate_label)} • {escape(detail)} • ({WEEKDAYS[p["weekly_off"]].title() if p["weekly_off"] >= 0 else "Daily Supply / No"} Off)</p>'
                 f'      </div>'
                 f'    </div>'
                 f'    <span class="month-badge">{month_label(now.year, now.month)}</span>'
@@ -1493,13 +1611,16 @@ def render_page(request: Request) -> str:
                 f'    <div class="total-amount">{SYMBOL}{money(m["balance"])}</div>'
                 f'  </div>'
                 f'  {extra_html}'
-                f'  <div class="card-actions">'
+                f'  <div class="card-actions" style="display:flex; gap:0.5rem; flex-wrap:wrap;">'
+                f'    {delivery_btns}'
                 f'    <button class="btn-upi" onclick="toggleUpiDrawer({p_id})">💳 Pay with Amazon Pay / UPI</button>'
-                f'    <a class="btn-whatsapp" href="{wa}" target="_blank" rel="noopener">💬 Send Slip on WhatsApp</a>'
+                f'    <a class="btn-whatsapp" href="{wa}" target="_blank" rel="noopener">💬 WhatsApp Slip</a>'
                 f'  </div>'
                 f'  {upi_drawer_html}'
                 f'</div>'
             )
+            continue
+
 
     if not blocks:
         blocks.append(
@@ -1627,6 +1748,72 @@ def render_page(request: Request) -> str:
 // Ready to trace JSON-RPC calls...</pre>
     </details>
   </section>
+
+
+  <!-- Category Filter Bar & Add Service Action -->
+  <div class="ledger-header-bar" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin:1.8rem 0 1.2rem;">
+    <div class="category-tabs" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+      <button class="cat-pill active" onclick="filterServiceCategory('all', this)">⚡ All Household Services</button>
+      <button class="cat-pill" onclick="filterServiceCategory('staff', this)">🧹 Domestic Staff</button>
+      <button class="cat-pill" onclick="filterServiceCategory('milk', this)">🥛 Milk & Dairy</button>
+      <button class="cat-pill" onclick="filterServiceCategory('newspaper', this)">📰 Newspaper</button>
+      <button class="cat-pill" onclick="filterServiceCategory('utility', this)">💧 Water & Supplies</button>
+    </div>
+    <button class="action-btn-primary" onclick="toggleAddServiceModal()" style="padding:0.55rem 1.15rem; font-size:0.86rem; border-radius:999px;">➕ Add Service / Supply / Staff</button>
+  </div>
+
+  <!-- Add Service / Column Modal -->
+  <div id="addServiceModal" class="service-modal-overlay" style="display:none;">
+    <div class="service-modal-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.2rem; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:0.75rem;">
+        <h3 style="margin:0; font-size:1.2rem; color:#fff;">➕ Add Household Service or Subscription</h3>
+        <button onclick="toggleAddServiceModal()" style="background:none; border:none; color:#888; font-size:1.4rem; cursor:pointer;">&times;</button>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:0.85rem;">
+        <label style="font-size:0.85rem; color:#cbe3f0;">Service / Provider Name:
+          <input type="text" id="newServName" placeholder="e.g. Country Delight Milk, Dainik Bhaskar, Ramlal Mali" class="voice-textbox" style="margin-top:0.35rem; width:100%; box-sizing:border-box;" />
+        </label>
+        <label style="font-size:0.85rem; color:#cbe3f0;">Category:
+          <select id="newServCategory" class="voice-textbox" style="margin-top:0.35rem; width:100%; box-sizing:border-box;">
+            <option value="staff">🧹 Domestic Staff (Maid, Cook, Driver)</option>
+            <option value="milk">🥛 Daily Milk & Dairy Supply</option>
+            <option value="newspaper">📰 Newspaper & Magazine Subscription</option>
+            <option value="utility">💧 Water Cans & Groceries</option>
+            <option value="other">🧺 Laundry & Other Services</option>
+          </select>
+        </label>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.8rem;">
+          <label style="font-size:0.85rem; color:#cbe3f0;">Rate / Price (₹):
+            <input type="number" id="newServRate" placeholder="e.g. 2800" class="voice-textbox" style="margin-top:0.35rem; width:100%; box-sizing:border-box;" />
+          </label>
+          <label style="font-size:0.85rem; color:#cbe3f0;">Billing Cycle:
+            <select id="newServUnit" class="voice-textbox" style="margin-top:0.35rem; width:100%; box-sizing:border-box;">
+              <option value="month">Per Month</option>
+              <option value="day">Per Day / Unit</option>
+            </select>
+          </label>
+        </div>
+        <label style="font-size:0.85rem; color:#cbe3f0;">Schedule / Item Details:
+          <input type="text" id="newServDetail" placeholder="e.g. 2 Litres cow milk daily at 6:30 AM" class="voice-textbox" style="margin-top:0.35rem; width:100%; box-sizing:border-box;" />
+        </label>
+        <label style="font-size:0.85rem; color:#cbe3f0;">Weekly Off:
+          <select id="newServOff" class="voice-textbox" style="margin-top:0.35rem; width:100%; box-sizing:border-box;">
+            <option value="none">No Off Days (Daily Delivery / 7 Days)</option>
+            <option value="sunday">Sunday Off</option>
+            <option value="monday">Monday Off</option>
+            <option value="saturday">Saturday Off</option>
+          </select>
+        </label>
+        <label style="font-size:0.85rem; color:#cbe3f0;">UPI ID (for 1-tap Amazon Pay / UPI):
+          <input type="text" id="newServUpi" placeholder="e.g. vendor@upi" class="voice-textbox" style="margin-top:0.35rem; width:100%; box-sizing:border-box;" />
+        </label>
+        <div style="display:flex; justify-content:flex-end; gap:0.8rem; margin-top:1.2rem;">
+          <button class="prompt-btn" onclick="toggleAddServiceModal()">Cancel</button>
+          <button class="action-btn-primary" onclick="submitAddService()">Save to Ledger</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Staff Ledger Section -->
   <div class="cards-container">
@@ -1981,6 +2168,68 @@ function quickAsk(text) {{
   sendVoicePrompt(text);
 }}
 
+
+function filterServiceCategory(cat, btn) {{
+  document.querySelectorAll('.cat-pill').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.querySelectorAll('.staff-card').forEach(card => {{
+    const cardCat = card.getAttribute('data-category') || 'staff';
+    if (cat === 'all' || cardCat === cat) {{
+      card.style.display = 'block';
+    }} else {{
+      card.style.display = 'none';
+    }}
+  }});
+}}
+
+function toggleAddServiceModal() {{
+  const el = document.getElementById('addServiceModal');
+  if (el) {{
+    el.style.display = (el.style.display === 'none' || !el.style.display) ? 'flex' : 'none';
+  }}
+}}
+
+async function submitAddService() {{
+  const name = document.getElementById('newServName').value.trim();
+  const cat = document.getElementById('newServCategory').value;
+  const rate = parseFloat(document.getElementById('newServRate').value) || 1000;
+  const unit = document.getElementById('newServUnit').value;
+  const detail = document.getElementById('newServDetail').value.trim();
+  const off = document.getElementById('newServOff').value;
+  const upi = document.getElementById('newServUpi').value.trim();
+
+  if (!name) {{
+    alert('Please enter a service or provider name.');
+    return;
+  }}
+
+  try {{
+    const resp = await fetch('/api/add_person', {{
+      method: 'POST',
+      headers: {{ 'Content-Type': 'application/json' }},
+      body: JSON.stringify({{
+        name: name,
+        rate: rate,
+        unit: unit,
+        category: cat,
+        item_detail: detail,
+        weekly_off: off,
+        upi_id: upi
+      }})
+    }});
+    const data = await resp.json();
+    if (data.ok) {{
+      toggleAddServiceModal();
+      refreshLedgerCards();
+      speakAlexaResponse(`Added ${{name}} to your household ledger.`);
+    }} else {{
+      alert('Error: ' + data.error);
+    }}
+  }} catch(e) {{
+    alert('Failed to add service: ' + e);
+  }}
+}}
+
 function filterFeatures(category, btn) {{
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
@@ -2097,14 +2346,22 @@ async function sendVoicePrompt(customText) {{
   if (awakeTimer) clearTimeout(awakeTimer);
   isAwake = false;
 
-  // Play the soothing ambient background chord right after user finished talking!
+  // 1. Play soothing ambient background chord immediately
   playSoothingProcessingSound();
-
-  const mcpJsonLog = document.getElementById('mcpJsonLog');
-  speechText.innerText = "Processing via Alexa+ Agent Core over Streamable HTTP...";
   setAlexaState('thinking');
   isAudioActive = true;
   micBtn.innerText = '🎙️ Speak';
+
+  // 2. Intelligent progressive thinking steps (1.4 - 1.5s neural pause)
+  speechText.innerHTML = '<span class="neural-badge">🧠 Alexa+ Neural Engine</span> Analyzing query & context...';
+  
+  await new Promise(r => setTimeout(r, 650));
+  speechText.innerHTML = '<span class="neural-badge">⚡ Hisaab Core</span> Verifying October attendance, delivery schedules & advances...';
+  
+  await new Promise(r => setTimeout(r, 700));
+  speechText.innerHTML = '<span class="neural-badge">✨ Multi-Modal Agent</span> Synthesizing voice response and updating live ledger...';
+
+  const mcpJsonLog = document.getElementById('mcpJsonLog');
 
   try {{
     const resp = await fetch('/api/simulate', {{
@@ -2197,6 +2454,33 @@ async def text_to_speech(request: Request) -> Response:
         return PlainTextResponse(f"TTS error: {e}", status_code=500)
 
 
+
+@mcp.custom_route("/api/add_person", methods=["POST"])
+async def api_add_person(request: Request) -> Response:
+    """Dynamically provisions a new household service, delivery, or staff ledger profile."""
+    try:
+        body = await request.json()
+        name = body.get("name", "").strip()
+        rate = float(body.get("rate", 1000))
+        unit = body.get("unit", "month").strip()
+        category = body.get("category", "staff").strip()
+        item_detail = body.get("item_detail", "").strip()
+        weekly_off = body.get("weekly_off", "none").strip()
+        upi_id = body.get("upi_id", "").strip()
+        res = set_up_person(
+            name=name,
+            pay_amount=rate,
+            pay_unit=unit,
+            weekly_off=weekly_off,
+            upi_id=upi_id,
+            category=category,
+            item_detail=item_detail,
+        )
+        return JSONResponse({"ok": True, "result": res})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+
+
 @mcp.custom_route("/api/simulate", methods=["POST"])
 async def simulate_voice(request: Request) -> Response:
     """Simulates an Alexa+ conversational agent turn dispatching to FastMCP tools with Hindi and Hinglish comprehension."""
@@ -2242,6 +2526,24 @@ async def simulate_voice(request: Request) -> Response:
             target_person = p["name"]
             matched_explicit = True
             break
+        elif any(k in prompt for k in ["milk", "doodh", "dairy", "country delight", "दूध"]):
+            for cand in people:
+                if cand["category"] == "milk" or "delight" in cand["name"].lower() or "milk" in cand["name"].lower() or "anil" in cand["name"].lower():
+                    target_person = cand["name"]
+                    matched_explicit = True
+                    break
+        elif any(k in prompt for k in ["newspaper", "paper", "times", "bhaskar", "akhbar", "अखबार"]):
+            for cand in people:
+                if cand["category"] == "newspaper" or "times" in cand["name"].lower() or "news" in cand["name"].lower():
+                    target_person = cand["name"]
+                    matched_explicit = True
+                    break
+        elif any(k in prompt for k in ["water", "can", "jar", "bisleri", "paani", "पानी"]):
+            for cand in people:
+                if cand["category"] == "utility" or "water" in cand["name"].lower() or "bisleri" in cand["name"].lower():
+                    target_person = cand["name"]
+                    matched_explicit = True
+                    break
 
     # Intent routing simulation (Supports Hindi + English)
     # 1. Undo
@@ -2300,12 +2602,23 @@ async def simulate_voice(request: Request) -> Response:
         trace["result"] = res
         return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
 
-    # 7. Absence / Chhutti
-    if any(k in prompt for k in ["absent", "chhutti", "chutti", "छुट्टी", "nahi aayi", "nahi aaya", "नहीं आई", "leave"]):
+    # 7. Absence / Chhutti / Skipped Delivery / Vacation Hold
+    if any(k in prompt for k in ["absent", "chhutti", "chutti", "छुट्टी", "nahi aayi", "nahi aaya", "नहीं आई", "leave", "skipped", "pause", "hold", "stop"]):
         res = log_visit(person=target_person, status="absent")
         mutated = True
         trace["tool"] = "log_visit"
         trace["arguments"] = {"person": target_person, "status": "absent"}
+        trace["result"] = res
+        return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
+
+    # 8. Extra Delivery / Bonus / Extra Milk
+    if any(k in prompt for k in ["extra", "aur", "packet", "litre", "लीटर", "more"]):
+        amt_match = re.search(r"(\d+)", prompt)
+        amt = float(amt_match.group(1)) if amt_match else 68.0
+        res = log_payment(person=target_person, amount=amt, kind="bonus")
+        mutated = True
+        trace["tool"] = "log_payment"
+        trace["arguments"] = {"person": target_person, "amount": amt, "kind": "bonus"}
         trace["result"] = res
         return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
 

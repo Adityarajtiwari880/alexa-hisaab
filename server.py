@@ -3237,71 +3237,120 @@ async function refreshLedgerCards() {{
   }} catch (e) {{}}
 }}
 
-// ------------------------------------------------------------- Fail-Safe Spoken Audio Engine
-function speakAlexaResponse(text) {{
-  isSpeaking = true;
-  setAlexaState('speaking');
-  isAudioActive = true;
+// ------------------------------------------------------------- Fail-Safe Spoken Audio Engine (Crystal-Clear & Lag-Free)
+function cleanSpokenText(t) {{
+  if (!t) return "";
+  return t
+    .replace(/₹/g, ' rupees ')
+    .replace(/Rs\\./g, ' rupees ')
+    .replace(/\\s*\\(\\s*₹?\\s*(\\d+)\\s*\\)/g, ', which is $1 rupees, ')
+    .replace(/\\s*\\((.*?)\\)/g, ', $1, ')
+    .replace(/-(\\d+)/g, 'minus $1')
+    .replace(/\\s+/g, ' ')
+    .trim();
+}}
 
-  // Stop any currently playing audio
+function speakAlexaResponse(rawText) {{
+  if (!rawText) return;
+  const text = cleanSpokenText(rawText);
+
+  // 1. Immediately mute mic input to prevent acoustic feedback loop / stutter
+  if (recognition) {{
+    try {{ recognition.abort(); }} catch(e) {{}}
+  }}
+
+  // 2. Clear any lingering utterances to avoid audio queue lag
+  if (window.speechSynthesis) {{
+    try {{ window.speechSynthesis.cancel(); }} catch(e) {{}}
+  }}
   if (currentPlayingAudio) {{
     try {{ currentPlayingAudio.pause(); }} catch(e) {{}}
     currentPlayingAudio = null;
   }}
+
+  isSpeaking = true;
+  setAlexaState('speaking');
+  isAudioActive = true;
 
   const onSpeechFinished = () => {{
     isSpeaking = false;
     isAudioActive = false;
     setAlexaState(null);
     micBtn.innerText = '🎙️ Speak';
+    
+    // Safely resume hands-free listening after speech finishes
     if (handsFreeEnabled) {{
       setTimeout(() => {{
-        try {{ recognition.start(); }} catch(e) {{}}
-      }}, 300);
+        if (!isSpeaking) {{
+          try {{ recognition.start(); }} catch(e) {{}}
+        }}
+      }}, 350);
     }}
   }};
 
-  // 1. Primary: Server-synthesized Windows SAPI (Microsoft Zira / Alexa voice)
-  const audioUrl = '/api/tts?text=' + encodeURIComponent(text);
-  const audio = new Audio(audioUrl);
+  // 3. Play via High-Definition SAPI with strict single-source guarantee (no double-voices)
+  const audio = new Audio();
   currentPlayingAudio = audio;
+  let fallbackHandled = false;
+
+  const runFallback = () => {{
+    if (fallbackHandled) return;
+    fallbackHandled = true;
+    if (currentPlayingAudio === audio) {{
+      currentPlayingAudio = null;
+    }}
+    fallbackBrowserSpeech(text, onSpeechFinished);
+  }};
 
   audio.onended = () => {{
+    if (fallbackHandled) return;
     currentPlayingAudio = null;
     onSpeechFinished();
   }};
 
-  audio.onerror = (e) => {{
-    console.warn("Server TTS playback error, falling back to browser SpeechSynthesis", e);
-    currentPlayingAudio = null;
-    fallbackBrowserSpeech(text, onSpeechFinished);
+  audio.onerror = () => {{
+    runFallback();
   }};
 
-  audio.play().catch(err => {{
-    console.warn("Audio autoplay blocked or failed, falling back to SpeechSynthesis", err);
-    fallbackBrowserSpeech(text, onSpeechFinished);
+  // Safety fallback if network or audio device stalls over 1200ms
+  const loadTimeout = setTimeout(() => {{
+    if (!audio.currentTime || audio.paused) {{
+      runFallback();
+    }}
+  }}, 1200);
+
+  audio.onplay = () => {{
+    clearTimeout(loadTimeout);
+  }};
+
+  audio.src = '/api/tts?text=' + encodeURIComponent(text);
+  audio.play().catch(() => {{
+    runFallback();
   }});
 }}
 
-// Fallback: Browser Web SpeechSynthesis
+// Fallback: Browser Web SpeechSynthesis (Natural Neural Voices)
 function fallbackBrowserSpeech(text, callback) {{
   if (!('speechSynthesis' in window)) {{
-    setTimeout(callback, 2500);
+    setTimeout(callback, 2000);
     return;
   }}
+  try {{ window.speechSynthesis.cancel(); }} catch(e) {{}}
   try {{ window.speechSynthesis.resume(); }} catch(e) {{}}
+
   const utter = new SpeechSynthesisUtterance(text);
   window._activeAlexaUtterance = utter;
 
-  const voices = window.speechSynthesis.getVoices();
-  if (voices && voices.length > 0) {{
-    const chosen = voices.find(v => v.lang === 'en-IN') ||
-                   voices.find(v => v.name.toLowerCase().includes('zira')) ||
+  const voices = window.speechSynthesis.getVoices() || [];
+  if (voices.length > 0) {{
+    const chosen = voices.find(v => v.name.toLowerCase().includes('zira')) ||
+                   voices.find(v => v.name.toLowerCase().includes('natural') && (v.lang.startsWith('en') || v.lang === 'en-IN')) ||
+                   voices.find(v => v.lang === 'en-IN') ||
                    voices.find(v => v.lang.startsWith('en'));
     if (chosen) utter.voice = chosen;
   }}
   utter.rate = 1.0;
-  utter.pitch = 1.05;
+  utter.pitch = 1.02;
 
   let finished = false;
   const done = () => {{
@@ -3312,11 +3361,11 @@ function fallbackBrowserSpeech(text, callback) {{
 
   utter.onend = done;
   utter.onerror = done;
-  setTimeout(done, Math.max(3000, (text.split(' ').length / 2.0) * 1000 + 1500));
+  setTimeout(done, Math.max(3000, (text.split(' ').length / 2.2) * 1000 + 1000));
   try {{ window.speechSynthesis.speak(utter); }} catch(e) {{ done(); }}
 }}
 
-// ------------------------------------------------------------- Voice Prompt Dispatcher
+// ------------------------------------------------------------- Voice Prompt Dispatcher (Zero-Wait Pipelined)
 async function sendVoicePrompt(customText) {{
   const input = customText || document.getElementById('voiceInput').value.trim();
   if (!input) return;
@@ -3330,32 +3379,35 @@ async function sendVoicePrompt(customText) {{
   isAudioActive = true;
   micBtn.innerText = '🎙️ Speak';
 
-  // 2. Intelligent progressive thinking steps (1.4 - 1.5s neural pause)
-  speechText.innerHTML = '<span class="neural-badge">🧠 Alexa+ Neural Engine</span> Analyzing query & context...';
-  
-  await new Promise(r => setTimeout(r, 650));
-  speechText.innerHTML = '<span class="neural-badge">⚡ Hisaab Core</span> Verifying October attendance, delivery schedules & advances...';
-  
-  await new Promise(r => setTimeout(r, 700));
-  speechText.innerHTML = '<span class="neural-badge">✨ Multi-Modal Agent</span> Synthesizing voice response and updating live ledger...';
+  // 2. FIRE THE API REQUEST IMMEDIATELY IN PARALLEL WITH THE THINKING STEPS!
+  const fetchPromise = fetch('/api/simulate', {{
+    method: 'POST',
+    headers: {{ 'Content-Type': 'application/json' }},
+    body: JSON.stringify({{ prompt: input }})
+  }}).then(r => r.json()).catch(err => ({{ ok: false, error: err }}));
 
-  const mcpJsonLog = document.getElementById('mcpJsonLog');
+  // 3. Crisp, responsive thinking steps (400ms + 400ms = 800ms total)
+  speechText.innerHTML = '<span class="neural-badge">🧠 Alexa+ Neural Engine</span> Analyzing query & context...';
+  await new Promise(r => setTimeout(r, 400));
+
+  speechText.innerHTML = '<span class="neural-badge">⚡ Hisaab Core</span> Verifying ledger, attendance & Amazon Pay status...';
+  await new Promise(r => setTimeout(r, 400));
+
+  speechText.innerHTML = '<span class="neural-badge">✨ Multi-Modal Agent</span> Synthesizing voice response...';
 
   try {{
-    const resp = await fetch('/api/simulate', {{
-      method: 'POST',
-      headers: {{ 'Content-Type': 'application/json' }},
-      body: JSON.stringify({{ prompt: input }})
-    }});
-    const data = await resp.json();
+    const data = await fetchPromise;
+    if (!data || (!data.ok && data.error)) throw (data ? data.error : "Network error");
 
     speechText.innerText = `"${{data.spoken_summary}}"`;
-    mcpJsonLog.innerText = JSON.stringify(data.mcp_trace, null, 2);
+    const mcpJsonLog = document.getElementById('mcpJsonLog');
+    if (mcpJsonLog) {{
+      mcpJsonLog.innerText = JSON.stringify(data.mcp_trace, null, 2);
+    }}
 
-    // Speak response out loud
+    // Speak response out loud cleanly with zero lag and zero double-speech
     speakAlexaResponse(data.spoken_summary);
 
-    // Dynamic ledger update without cutting off speech or reloading page
     if (data.mutated) {{
       refreshLedgerCards();
     }}
@@ -3403,6 +3455,14 @@ async def text_to_speech(request: Request) -> Response:
     text = request.query_params.get("text", "").strip()
     if not text:
         return PlainTextResponse("Missing text", status_code=400)
+    
+    # Clean and naturalize text for crystal-clear phonetics
+    clean_text = text.replace("₹", " rupees ").replace("Rs.", " rupees ")
+    clean_text = re.sub(r"\s*\(\s*rupees?\s*(\d+)\s*\)", r", which is \1 rupees, ", clean_text)
+    clean_text = re.sub(r"\s*\((.*?)\)", r", \1, ", clean_text)
+    clean_text = re.sub(r"-(\d+)", r"minus \1", clean_text)
+    clean_text = re.sub(r"\s+", " ", clean_text).strip()
+
     try:
         import win32com.client
         import tempfile
@@ -3418,10 +3478,17 @@ async def text_to_speech(request: Request) -> Response:
                 speaker.Voice = v
                 break
         stream = win32com.client.Dispatch("SAPI.SpFileStream")
+        try:
+            audio_format = win32com.client.Dispatch("SAPI.SpAudioFormat")
+            audio_format.Type = 22 # SAFT22kHz16BitMono for high-definition clarity
+            stream.Format = audio_format
+        except Exception:
+            pass
         stream.Open(tmp_path, 3, False)
         speaker.AudioOutputStream = stream
-        speaker.Rate = 1
-        speaker.Speak(text)
+        speaker.Rate = 0  # 0 is the natural, crystal-clear, steady Alexa pace
+        speaker.Volume = 100
+        speaker.Speak(clean_text)
         stream.Close()
         with open(tmp_path, "rb") as f:
             wav_bytes = f.read()

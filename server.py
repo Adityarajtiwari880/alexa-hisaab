@@ -1551,6 +1551,7 @@ def render_page(request: Request) -> str:
         <span id="wakeStatusIcon">🟢</span>
         <span id="wakeStatusText"><b>Hands-Free Active</b>: Just say <i>"Alexa..."</i> aloud (or click ring)</span>
       </div>
+      <button class="btn-lang-toggle" id="btnLangToggle" onclick="toggleLang()" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.18); color:#00d2ff; padding:0.3rem 0.75rem; border-radius:999px; font-size:0.75rem; cursor:pointer;" title="Click to toggle language">🇮🇳 Hinglish (en-IN)</button>
       <button class="btn-wake-toggle" id="btnWakeToggle" onclick="toggleHandsFree()">Listening</button>
     </div>
 
@@ -1642,8 +1643,13 @@ def render_page(request: Request) -> str:
 </main>
 
 <script>
-// ------------------------------------------------------------- Web Audio Synthesized Alexa Wake Chime
+// ------------------------------------------------------------- Web Audio Synthesizer (Chimes & Ambience)
 let sharedAudioCtx = null;
+let micAudioStream = null;
+let micAnalyser = null;
+let micSource = null;
+let currentLang = 'en-IN'; // Supports 'en-IN' and 'en-US'
+
 function getAudioContext() {{
   if (!sharedAudioCtx) {{
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -1655,52 +1661,111 @@ function getAudioContext() {{
   return sharedAudioCtx;
 }}
 
+// Starting sound of Alexa: Sub-bass resonance pop + crisp dual bell (784Hz -> 1046Hz)
 function playAlexaWakeChime() {{
   try {{
     const audioCtx = getAudioContext();
     if (!audioCtx) return;
     const now = audioCtx.currentTime;
 
+    // Sub-bass resonance pulse (Echo hardware thump)
+    const subOsc = audioCtx.createOscillator();
+    const subGain = audioCtx.createGain();
+    subOsc.type = 'sine';
+    subOsc.frequency.setValueAtTime(140, now);
+    subOsc.frequency.exponentialRampToValueAtTime(55, now + 0.12);
+    subGain.gain.setValueAtTime(0.3, now);
+    subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    subOsc.connect(subGain);
+    subGain.connect(audioCtx.destination);
+    subOsc.start(now);
+    subOsc.stop(now + 0.15);
+
     // Bell Tone 1 (G5 - 784 Hz)
     const osc1 = audioCtx.createOscillator();
     const gain1 = audioCtx.createGain();
-    osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(784, now);
-    gain1.gain.setValueAtTime(0.25, now);
-    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+    osc1.type = 'triangle';
+    osc1.frequency.setValueAtTime(783.99, now + 0.02);
+    gain1.gain.setValueAtTime(0.35, now + 0.02);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
     osc1.connect(gain1);
     gain1.connect(audioCtx.destination);
-    osc1.start(now);
-    osc1.stop(now + 0.16);
+    osc1.start(now + 0.02);
+    osc1.stop(now + 0.24);
 
-    // Bell Tone 2 (C6 - 1046 Hz)
+    // Bell Tone 2 (C6 - 1046.5 Hz)
     const osc2 = audioCtx.createOscillator();
     const gain2 = audioCtx.createGain();
     osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(1046, now + 0.08);
-    gain2.gain.setValueAtTime(0.3, now + 0.08);
-    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+    osc2.frequency.setValueAtTime(1046.5, now + 0.12);
+    gain2.gain.setValueAtTime(0.4, now + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.48);
     osc2.connect(gain2);
     gain2.connect(audioCtx.destination);
-    osc2.start(now + 0.08);
-    osc2.stop(now + 0.38);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 0.48);
   }} catch (e) {{}}
 }}
 
-// ------------------------------------------------------------- 3D Audio Visualizer
+// Soothing background ambient chord played after listening and before Alexa speaks
+function playSoothingProcessingSound() {{
+  try {{
+    const audioCtx = getAudioContext();
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+
+    // Meditative ambient harmonic chord: C4 (261.63Hz), G4 (392Hz), C5 (523.25Hz), E5 (659.25Hz)
+    const freqs = [261.63, 392.00, 523.25, 659.25];
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(800, now);
+    filter.frequency.exponentialRampToValueAtTime(1300, now + 0.4);
+    filter.frequency.exponentialRampToValueAtTime(500, now + 1.2);
+    filter.connect(audioCtx.destination);
+
+    freqs.forEach((f, idx) => {{
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(f, now + idx * 0.03);
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.08, now + 0.2 + idx * 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
+      osc.connect(gain);
+      gain.connect(filter);
+      osc.start(now + idx * 0.03);
+      osc.stop(now + 1.2);
+    }});
+  }} catch (e) {{}}
+}}
+
+// ------------------------------------------------------------- Real-time 3D Waveform Visualizer
 const canvas = document.getElementById('waveCanvas');
 const ctx = canvas.getContext('2d');
 let waveStep = 0;
 let isAudioActive = false;
+let micAudioLevel = 0;
 
 function drawWave() {{
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const mid = canvas.height / 2;
-  const amp = isAudioActive ? 12 : 3;
+
+  // React to actual microphone volume if stream is connected
+  let amp = 3;
+  if (micAnalyser) {{
+    const dataArray = new Uint8Array(micAnalyser.frequencyBinCount);
+    micAnalyser.getByteFrequencyData(dataArray);
+    let sum = 0;
+    for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+    micAudioLevel = sum / dataArray.length;
+    amp = Math.max(3, micAudioLevel * 0.45);
+  }} else if (isAudioActive) {{
+    amp = 14;
+  }}
 
   ctx.beginPath();
-  ctx.strokeStyle = isAudioActive ? '#00d2ff' : 'rgba(0, 210, 255, 0.35)';
-  ctx.lineWidth = isAudioActive ? 2.5 : 1.5;
+  ctx.strokeStyle = (isAudioActive || micAudioLevel > 10) ? '#00d2ff' : 'rgba(0, 210, 255, 0.4)';
+  ctx.lineWidth = (isAudioActive || micAudioLevel > 10) ? 2.5 : 1.5;
 
   for (let x = 0; x < canvas.width; x++) {{
     const y = mid + Math.sin((x * 0.05) + waveStep) * amp * Math.sin((x / canvas.width) * Math.PI);
@@ -1709,18 +1774,38 @@ function drawWave() {{
   }}
   ctx.stroke();
 
-  waveStep += isAudioActive ? 0.18 : 0.04;
+  waveStep += (isAudioActive || micAudioLevel > 10) ? 0.2 : 0.04;
   requestAnimationFrame(drawWave);
 }}
 drawWave();
 
+// ------------------------------------------------------------- Active Hardware Microphone Capture
+async function ensureMicAccess() {{
+  if (micAudioStream) return true;
+  try {{
+    micAudioStream = await navigator.mediaDevices.getUserMedia({{ audio: true }});
+    const audioCtx = getAudioContext();
+    if (audioCtx) {{
+      micSource = audioCtx.createMediaStreamSource(micAudioStream);
+      micAnalyser = audioCtx.createAnalyser();
+      micAnalyser.fftSize = 64;
+      micSource.connect(micAnalyser);
+    }}
+    return true;
+  }} catch (err) {{
+    console.warn("Microphone access permission error:", err);
+    wakeStatusText.innerHTML = "Mic access blocked. Click 🔒 in address bar to allow.";
+    return false;
+  }}
+}}
+
 // ------------------------------------------------------------- Alexa State & Dialogue Engine
 let handsFreeEnabled = true;
-let recognizing = false;
+let isSpeaking = false;
 let recognition = null;
-let wakeWordLock = false;
 let isAwake = false;
 let awakeTimer = null;
+let currentPlayingAudio = null;
 
 const ringEl = document.getElementById('alexaLightRing');
 const wakeStatusText = document.getElementById('wakeStatusText');
@@ -1750,17 +1835,16 @@ function wakeAlexa(initialCommand) {{
     document.getElementById('voiceInput').value = initialCommand.trim();
     sendVoicePrompt(initialCommand.trim());
   }} else {{
-    speechText.innerText = "Listening... Ask about hisaab, attendance, or salary.";
-    // Keep waiting for command for 7 seconds
+    speechText.innerText = "Listening... Ask your question or command.";
     awakeTimer = setTimeout(() => {{
-      if (isAwake && !wakeWordLock) {{
+      if (isAwake && !isSpeaking) {{
         isAwake = false;
         setAlexaState(null);
         isAudioActive = false;
         micBtn.innerText = '🎙️ Speak';
         speechText.innerText = '"Hisaab is active. Say \'Alexa\' or click the ring to talk."';
       }}
-    }}, 7000);
+    }}, 7500);
   }}
 }}
 
@@ -1773,24 +1857,29 @@ function initSpeechRecognition() {{
 
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SpeechRec();
-  recognition.continuous = true;
+  // Single-turn continuous loop: Chrome never hangs or stalls in this mode!
+  recognition.continuous = false;
   recognition.interimResults = true;
-  recognition.lang = 'en-IN';  // Handles Indian English and Hinglish smoothly
+  recognition.lang = currentLang;
 
   recognition.onstart = () => {{
-    recognizing = true;
     wakeStatusIcon.innerText = "🟢";
-    wakeStatusText.innerHTML = "<b>Hands-Free Listening</b>: Say <i>'Alexa...'</i> or <i>'सुनीता का हिसाब'</i>";
+    wakeStatusText.innerHTML = `<b>Mic Live & Listening (${{currentLang}})</b>: Say <i>'Alexa...'</i>`;
     btnWakeToggle.innerText = "Listening";
   }};
 
+  recognition.onspeechstart = () => {{
+    liveTranscriptStrip.style.display = 'flex';
+    liveHearingText.innerText = "Listening to your voice...";
+  }};
+
   recognition.onresult = (e) => {{
-    if (wakeWordLock) return;
+    if (isSpeaking) return;
 
     for (let i = e.resultIndex; i < e.results.length; ++i) {{
       const transcript = e.results[i][0].transcript.trim().toLowerCase();
       
-      // Update Live Transcript Strip
+      // Update Live Transcript HUD
       liveTranscriptStrip.style.display = 'flex';
       liveHearingText.innerText = transcript;
 
@@ -1812,7 +1901,6 @@ function initSpeechRecognition() {{
         if (e.results[i].isFinal && transcript.length > 1) {{
           if (awakeTimer) clearTimeout(awakeTimer);
           isAwake = false;
-          wakeWordLock = true;
           document.getElementById('voiceInput').value = transcript;
           sendVoicePrompt(transcript);
           break;
@@ -1822,7 +1910,6 @@ function initSpeechRecognition() {{
         const hasStaff = /(?:sunita|ramesh|raju|anil|सुनीता|रमेश|राजू|अनिल)/i.test(transcript);
         const hasIntent = /(?:hisaab|hisab|salary|pay|advance|absent|chhutti|half|balance|undo|wapas|हिसाब|वेतन|छुट्टी)/i.test(transcript);
         if (hasStaff || hasIntent || micBtn.innerText.includes('Listening')) {{
-          wakeWordLock = true;
           document.getElementById('voiceInput').value = transcript;
           sendVoicePrompt(transcript);
           break;
@@ -1834,40 +1921,40 @@ function initSpeechRecognition() {{
   recognition.onerror = (e) => {{
     if (e.error === 'not-allowed') {{
       wakeStatusIcon.innerText = "🔒";
-      wakeStatusText.innerHTML = "Mic permission needed. Click <b>'🎙️ Speak'</b> to enable.";
+      wakeStatusText.innerHTML = "Mic permission needed. Click <b>'🎙️ Speak'</b> to allow.";
       btnWakeToggle.innerText = "Enable Mic";
       handsFreeEnabled = false;
+    }} else if (e.error !== 'no-speech') {{
+      console.warn("SpeechRec error:", e.error);
     }}
   }};
 
   recognition.onend = () => {{
-    recognizing = false;
     liveTranscriptStrip.style.display = 'none';
-    if (handsFreeEnabled && !wakeWordLock) {{
+    // Automatically restart listening turn seamlessly
+    if (handsFreeEnabled && !isSpeaking) {{
       setTimeout(() => {{
         try {{ recognition.start(); }} catch(err) {{}}
-      }}, 300);
+      }}, 250);
     }}
   }};
 }}
 
 initSpeechRecognition();
 
-function tapToTalk() {{
+async function tapToTalk() {{
   getAudioContext();
-  if ('speechSynthesis' in window) {{
-    try {{ window.speechSynthesis.resume(); }} catch(e) {{}}
-  }}
+  await ensureMicAccess();
   handsFreeEnabled = true;
-  try {{ if (recognition && !recognizing) recognition.start(); }} catch(err) {{}}
   wakeAlexa(null);
+  try {{ recognition.start(); }} catch(err) {{}}
 }}
 
 function toggleHandsFree() {{
   if (!recognition) return;
-  if (recognizing) {{
+  if (handsFreeEnabled) {{
     handsFreeEnabled = false;
-    recognition.stop();
+    try {{ recognition.stop(); }} catch(e) {{}}
     wakeStatusIcon.innerText = "⏸️";
     wakeStatusText.innerHTML = "Hands-free paused. Click to re-enable.";
     btnWakeToggle.innerText = "Enable";
@@ -1875,6 +1962,18 @@ function toggleHandsFree() {{
     handsFreeEnabled = true;
     try {{ recognition.start(); }} catch(err) {{}}
   }}
+}}
+
+function toggleLang() {{
+  currentLang = (currentLang === 'en-IN') ? 'en-US' : 'en-IN';
+  if (recognition) {{
+    recognition.lang = currentLang;
+  }}
+  const el = document.getElementById('btnLangToggle');
+  if (el) {{
+    el.innerText = (currentLang === 'en-IN') ? '🇮🇳 Hinglish (en-IN)' : '🌐 English (en-US)';
+  }}
+  wakeStatusText.innerHTML = `<b>Mic Live & Listening (${{currentLang}})</b>: Say <i>'Alexa...'</i>`;
 }}
 
 function quickAsk(text) {{
@@ -1911,72 +2010,83 @@ async function refreshLedgerCards() {{
   }} catch (e) {{}}
 }}
 
-// ------------------------------------------------------------- Robust Speech Synthesis (TTS)
+// ------------------------------------------------------------- Fail-Safe Spoken Audio Engine
 function speakAlexaResponse(text) {{
-  if (!('speechSynthesis' in window)) {{
-    isAudioActive = false;
-    setTimeout(() => {{
-      setAlexaState(null);
-      wakeWordLock = false;
-    }}, 2500);
-    return;
+  isSpeaking = true;
+  setAlexaState('speaking');
+  isAudioActive = true;
+
+  // Stop any currently playing audio
+  if (currentPlayingAudio) {{
+    try {{ currentPlayingAudio.pause(); }} catch(e) {{}}
+    currentPlayingAudio = null;
   }}
 
-  try {{
-    window.speechSynthesis.resume();
-    window.speechSynthesis.cancel();
-  }} catch(e) {{}}
+  const onSpeechFinished = () => {{
+    isSpeaking = false;
+    isAudioActive = false;
+    setAlexaState(null);
+    micBtn.innerText = '🎙️ Speak';
+    if (handsFreeEnabled) {{
+      setTimeout(() => {{
+        try {{ recognition.start(); }} catch(e) {{}}
+      }}, 300);
+    }}
+  }};
 
+  // 1. Primary: Server-synthesized Windows SAPI (Microsoft Zira / Alexa voice)
+  const audioUrl = '/api/tts?text=' + encodeURIComponent(text);
+  const audio = new Audio(audioUrl);
+  currentPlayingAudio = audio;
+
+  audio.onended = () => {{
+    currentPlayingAudio = null;
+    onSpeechFinished();
+  }};
+
+  audio.onerror = (e) => {{
+    console.warn("Server TTS playback error, falling back to browser SpeechSynthesis", e);
+    currentPlayingAudio = null;
+    fallbackBrowserSpeech(text, onSpeechFinished);
+  }};
+
+  audio.play().catch(err => {{
+    console.warn("Audio autoplay blocked or failed, falling back to SpeechSynthesis", err);
+    fallbackBrowserSpeech(text, onSpeechFinished);
+  }});
+}}
+
+// Fallback: Browser Web SpeechSynthesis
+function fallbackBrowserSpeech(text, callback) {{
+  if (!('speechSynthesis' in window)) {{
+    setTimeout(callback, 2500);
+    return;
+  }}
+  try {{ window.speechSynthesis.resume(); }} catch(e) {{}}
   const utter = new SpeechSynthesisUtterance(text);
-  window._activeAlexaUtterance = utter; // Prevent Chrome GC silence bug
+  window._activeAlexaUtterance = utter;
 
-  // Pick best available voice (English India, UK Female, Natural, or English)
   const voices = window.speechSynthesis.getVoices();
   if (voices && voices.length > 0) {{
     const chosen = voices.find(v => v.lang === 'en-IN') ||
-                   voices.find(v => v.name.toLowerCase().includes('india')) ||
                    voices.find(v => v.name.toLowerCase().includes('zira')) ||
-                   voices.find(v => v.name.toLowerCase().includes('natural')) ||
-                   voices.find(v => v.name.toLowerCase().includes('google uk english female')) ||
                    voices.find(v => v.lang.startsWith('en'));
     if (chosen) utter.voice = chosen;
   }}
-
   utter.rate = 1.0;
   utter.pitch = 1.05;
 
-  let speechFinished = false;
-  const finishSpeech = () => {{
-    if (speechFinished) return;
-    speechFinished = true;
-    isAudioActive = false;
-    setAlexaState(null);
-    wakeWordLock = false;
-    window._activeAlexaUtterance = null;
-    micBtn.innerText = '🎙️ Speak';
-    if (handsFreeEnabled && !recognizing) {{
-      try {{ recognition.start(); }} catch(err) {{}}
-    }}
+  let finished = false;
+  const done = () => {{
+    if (finished) return;
+    finished = true;
+    callback();
   }};
 
-  utter.onend = finishSpeech;
-  utter.onerror = (e) => {{
-    finishSpeech();
-  }};
-
-  // Safety fallback: Release lock even if browser drops onend
-  const approxDurationMs = Math.max(3000, (text.split(' ').length / 2.0) * 1000 + 2000);
-  setTimeout(() => {{
-    if (!speechFinished) {{
-      finishSpeech();
-    }}
-  }}, approxDurationMs);
-
-  try {{
-    window.speechSynthesis.speak(utter);
-  }} catch(err) {{
-    finishSpeech();
-  }}
+  utter.onend = done;
+  utter.onerror = done;
+  setTimeout(done, Math.max(3000, (text.split(' ').length / 2.0) * 1000 + 1500));
+  try {{ window.speechSynthesis.speak(utter); }} catch(e) {{ done(); }}
 }}
 
 // ------------------------------------------------------------- Voice Prompt Dispatcher
@@ -1984,9 +2094,11 @@ async function sendVoicePrompt(customText) {{
   const input = customText || document.getElementById('voiceInput').value.trim();
   if (!input) return;
 
-  wakeWordLock = true;
   if (awakeTimer) clearTimeout(awakeTimer);
   isAwake = false;
+
+  // Play the soothing ambient background chord right after user finished talking!
+  playSoothingProcessingSound();
 
   const mcpJsonLog = document.getElementById('mcpJsonLog');
   speechText.innerText = "Processing via Alexa+ Agent Core over Streamable HTTP...";
@@ -2004,7 +2116,6 @@ async function sendVoicePrompt(customText) {{
 
     speechText.innerText = `"${{data.spoken_summary}}"`;
     mcpJsonLog.innerText = JSON.stringify(data.mcp_trace, null, 2);
-    setAlexaState('speaking');
 
     // Speak response out loud
     speakAlexaResponse(data.spoken_summary);
@@ -2017,7 +2128,7 @@ async function sendVoicePrompt(customText) {{
     speechText.innerText = "Connection error to Hisaab MCP server.";
     isAudioActive = false;
     setAlexaState(null);
-    wakeWordLock = false;
+    isSpeaking = false;
   }}
 }}
 
@@ -2032,20 +2143,11 @@ function markSalaryPaid(person) {{
   quickAsk(`Pay ${{person}} salary with Amazon Pay`);
 }}
 
-// Pre-load voices
-if ('speechSynthesis' in window) {{
-  window.speechSynthesis.onvoiceschanged = () => {{
-    try {{ window.speechSynthesis.getVoices(); }} catch(e) {{}}
-  }};
-}}
-
-// Unlock audio and start listening on user interaction
-window.addEventListener('click', () => {{
+// Unlock audio context and microphone on any page interaction
+window.addEventListener('click', async () => {{
   getAudioContext();
-  if ('speechSynthesis' in window) {{
-    try {{ window.speechSynthesis.resume(); }} catch(e) {{}}
-  }}
-  if (recognition && !recognizing && handsFreeEnabled) {{
+  await ensureMicAccess();
+  if (recognition && handsFreeEnabled && !isSpeaking) {{
     try {{ recognition.start(); }} catch(err) {{}}
   }}
 }});
@@ -2057,6 +2159,42 @@ window.addEventListener('click', () => {{
 
 def token_ok(value: str) -> bool:
     return secrets.compare_digest(value.encode(), TOKEN.encode())
+
+
+
+@mcp.custom_route("/api/tts", methods=["GET"])
+async def text_to_speech(request: Request) -> Response:
+    """Generates crystal-clear spoken WAV audio using native Windows SAPI (Microsoft Zira / Alexa voice)."""
+    text = request.query_params.get("text", "").strip()
+    if not text:
+        return PlainTextResponse("Missing text", status_code=400)
+    try:
+        import win32com.client
+        import tempfile
+        import os
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+            tmp_path = tf.name
+        speaker = win32com.client.Dispatch("SAPI.SpVoice")
+        voices = speaker.GetVoices()
+        for i in range(voices.Count):
+            v = voices.Item(i)
+            desc = v.GetDescription().lower()
+            if "zira" in desc or "female" in desc:
+                speaker.Voice = v
+                break
+        stream = win32com.client.Dispatch("SAPI.SpFileStream")
+        stream.Open(tmp_path, 3, False)
+        speaker.AudioOutputStream = stream
+        speaker.Rate = 1
+        speaker.Speak(text)
+        stream.Close()
+        with open(tmp_path, "rb") as f:
+            wav_bytes = f.read()
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        return Response(content=wav_bytes, media_type="audio/wav")
+    except Exception as e:
+        return PlainTextResponse(f"TTS error: {e}", status_code=500)
 
 
 @mcp.custom_route("/api/simulate", methods=["POST"])

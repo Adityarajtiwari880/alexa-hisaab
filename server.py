@@ -1842,7 +1842,7 @@ function wakeAlexa(initialCommand) {{
         setAlexaState(null);
         isAudioActive = false;
         micBtn.innerText = '🎙️ Speak';
-        speechText.innerText = '"Hisaab is active. Say \'Alexa\' or click the ring to talk."';
+        speechText.innerText = "Hisaab is active. Say 'Alexa' or click the ring to talk.";
       }}
     }}, 7500);
   }}
@@ -1884,7 +1884,7 @@ function initSpeechRecognition() {{
       liveHearingText.innerText = transcript;
 
       // Check for Wake Words: 'alexa', 'hey alexa', 'अलेक्सा', etc.
-      const wakeMatch = transcript.match(/(?:hey\s+)?(?:alexa|elixa|alex|alxa|अलेक्सा)/i);
+      const wakeMatch = transcript.match(/(?:hey[ ]+)?(?:alexa|elixa|alex|alxa|अलेक्सा)/i);
 
       if (wakeMatch) {{
         const parts = transcript.split(wakeMatch[0]);

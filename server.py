@@ -3,7 +3,9 @@ Hisaab: A voice-first ledger for household help, served as an MCP server for Ale
 Production-ready build for the Amazon Developer Hackathon (Build, Ship, Shape).
 Supports:
 - Model Context Protocol (MCP) Streamable HTTP Transport (spec 2025-11-25+)
+- Hands-Free Ambient Wake Word ("Alexa") with Authentic Dual-Tone Chime
 - Nostalgic Alexa Light Ring in Modern 3D Isometric Format
+- Rich Multi-Staff Household Database (Maid, Cook, Driver, Milkman)
 - 1-Tap Amazon Pay / UPI Settlement with Dynamic QR Code Generation
 - Present-by-default pro-rata wage calculations & 8-week habit pattern recognition
 - Multi-modal output: Spoken audio, HTML5 Cards, WhatsApp Slip, and iCal feed
@@ -12,6 +14,7 @@ Supports:
 import calendar
 import json
 import os
+import re
 import secrets
 import sqlite3
 import urllib.parse
@@ -95,6 +98,65 @@ def db():
         conn.commit()
     finally:
         conn.close()
+
+
+def ensure_seed_data():
+    """Populates a rich household staff ecosystem if database is sparse."""
+    with db() as conn:
+        count = conn.execute("SELECT count(*) as cnt FROM people").fetchone()["cnt"]
+        if count >= 3:
+            return
+
+        # 1. Sunita (Maid)
+        conn.execute(
+            "INSERT INTO people(name, rate, unit, weekly_off, paid_leaves, pay_day, upi_id) VALUES (?,?,?,?,?,?,?) "
+            "ON CONFLICT(name) DO UPDATE SET rate=excluded.rate, unit=excluded.unit, upi_id=excluded.upi_id",
+            ("Sunita", 9000.0, "month", 6, 1.0, 1, "sunita@apl")
+        )
+        p_sunita = conn.execute("SELECT id FROM people WHERE name='Sunita'").fetchone()["id"]
+        # Absences on Mondays in Oct
+        for d in ["2026-10-05", "2026-10-12", "2026-10-19"]:
+            conn.execute("INSERT INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
+                         (p_sunita, d, "absent", 0, datetime.now(TZ).isoformat()))
+        conn.execute("INSERT INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
+                     (p_sunita, "2026-10-23", "advance", 2000.0, datetime.now(TZ).isoformat()))
+
+        # 2. Ramesh (Cook)
+        conn.execute(
+            "INSERT INTO people(name, rate, unit, weekly_off, paid_leaves, pay_day, upi_id) VALUES (?,?,?,?,?,?,?) "
+            "ON CONFLICT(name) DO UPDATE SET rate=excluded.rate, unit=excluded.unit, upi_id=excluded.upi_id",
+            ("Ramesh", 6500.0, "month", 2, 1.0, 1, "ramesh.cook@upi")
+        )
+        p_ramesh = conn.execute("SELECT id FROM people WHERE name='Ramesh'").fetchone()["id"]
+        conn.execute("INSERT INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
+                     (p_ramesh, "2026-10-14", "half_day", 0, datetime.now(TZ).isoformat()))
+        conn.execute("INSERT INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
+                     (p_ramesh, "2026-10-10", "advance", 1000.0, datetime.now(TZ).isoformat()))
+
+        # 3. Raju (Driver - Day Wage)
+        conn.execute(
+            "INSERT INTO people(name, rate, unit, weekly_off, paid_leaves, pay_day, upi_id) VALUES (?,?,?,?,?,?,?) "
+            "ON CONFLICT(name) DO UPDATE SET rate=excluded.rate, unit=excluded.unit, upi_id=excluded.upi_id",
+            ("Raju", 600.0, "day", 6, 0.0, 1, "raju.driver@apl")
+        )
+        p_raju = conn.execute("SELECT id FROM people WHERE name='Raju'").fetchone()["id"]
+        conn.execute("INSERT INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
+                     (p_raju, "2026-10-06", "absent", 0, datetime.now(TZ).isoformat()))
+        conn.execute("INSERT INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
+                     (p_raju, "2026-10-20", "absent", 0, datetime.now(TZ).isoformat()))
+        conn.execute("INSERT INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
+                     (p_raju, "2026-10-15", "advance", 2500.0, datetime.now(TZ).isoformat()))
+
+        # 4. Anil (Milkman - Daily Delivery, No Off)
+        conn.execute(
+            "INSERT INTO people(name, rate, unit, weekly_off, paid_leaves, pay_day, upi_id) VALUES (?,?,?,?,?,?,?) "
+            "ON CONFLICT(name) DO UPDATE SET rate=excluded.rate, unit=excluded.unit, upi_id=excluded.upi_id",
+            ("Anil", 2800.0, "month", -1, 0.0, 1, "anil.dairy@upi")
+        )
+
+
+# Ensure seed data is populated
+ensure_seed_data()
 
 
 # ----------------------------------------------------------------- Math & Helper Functions
@@ -874,11 +936,42 @@ main {
   opacity: 0.9;
 }
 
+/* Hands-Free Wake Word Bar */
+.wake-word-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(0, 210, 255, 0.08);
+  border: 1px solid rgba(0, 210, 255, 0.25);
+  border-radius: 0.75rem;
+  padding: 0.6rem 1rem;
+  margin-top: 1rem;
+  font-size: 0.86rem;
+}
+.wake-status-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #cbe3eb;
+}
+.btn-wake-toggle {
+  background: #00d2ff;
+  color: #041017;
+  font-weight: 700;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.85rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+}
+.btn-wake-toggle:hover { opacity: 0.9; }
+
 /* Voice Input Controls */
 .input-dock {
   display: flex;
   gap: 0.6rem;
-  margin-top: 1rem;
+  margin-top: 0.75rem;
 }
 .voice-textbox {
   flex: 1;
@@ -1321,6 +1414,7 @@ def render_page(request: Request) -> str:
             wa = "https://wa.me/?text=" + urllib.parse.quote(slip_text(p, m))
             p_id = p["id"]
             initials = "".join([part[0].upper() for part in p["name"].split()[:2]]) or "S"
+            rate_label = f"{SYMBOL}{money(p['rate'])}/{p['unit']}"
 
             upi_drawer_html = f"""
             <div id="upi-drawer-{p_id}" class="upi-expansion-card" style="display:none;">
@@ -1344,7 +1438,7 @@ def render_page(request: Request) -> str:
                 f'      <div class="staff-avatar">{escape(initials)}</div>'
                 f'      <div class="staff-names">'
                 f'        <h2>{escape(p["name"])}</h2>'
-                f'        <p>Active • Present by default ({WEEKDAYS[p["weekly_off"]].title() if p["weekly_off"] >= 0 else "No"} Off)</p>'
+                f'        <p>{escape(rate_label)} • Present by default ({WEEKDAYS[p["weekly_off"]].title() if p["weekly_off"] >= 0 else "No"} Off)</p>'
                 f'      </div>'
                 f'    </div>'
                 f'    <span class="month-badge">{month_label(now.year, now.month)}</span>'
@@ -1410,9 +1504,18 @@ def render_page(request: Request) -> str:
       <canvas class="wave-canvas" id="waveCanvas" width="240" height="36"></canvas>
     </div>
 
+    <!-- Hands-Free Ambient Wake Word Banner -->
+    <div class="wake-word-banner">
+      <div class="wake-status-group">
+        <span id="wakeStatusIcon">🟢</span>
+        <span id="wakeStatusText"><b>Hands-Free Active</b>: Just say <i>"Alexa..."</i> aloud</span>
+      </div>
+      <button class="btn-wake-toggle" id="btnWakeToggle" onclick="toggleHandsFree()">Mic Active</button>
+    </div>
+
     <!-- Voice Input Dock -->
     <div class="input-dock">
-      <input type="text" id="voiceInput" class="voice-textbox" placeholder="Say or type: 'How much do I owe Sunita?'" />
+      <input type="text" id="voiceInput" class="voice-textbox" placeholder="Say 'Alexa, how much do I owe Sunita?' or type query..." />
       <button class="action-btn-primary" id="micBtn" onclick="toggleMic()">🎙️ Speak</button>
       <button class="action-btn-primary" onclick="sendVoicePrompt()">Ask</button>
     </div>
@@ -1422,9 +1525,11 @@ def render_page(request: Request) -> str:
       <div class="trigger-header">Quick Voice Triggers for Testing:</div>
       <div class="trigger-grid">
         <button class="trigger-pill" onclick="quickAsk('How much do I owe Sunita?')">🎙️ How much do I owe Sunita?</button>
+        <button class="trigger-pill" onclick="quickAsk('What is my total household balance?')">🎙️ Total Household Hisaab</button>
+        <button class="trigger-pill" onclick="quickAsk('How much do I owe Ramesh?')">🎙️ How much do I owe Ramesh (Cook)?</button>
+        <button class="trigger-pill" onclick="quickAsk('Pay Raju driver with Amazon Pay')">🎙️ Pay Raju (Driver) with Amazon Pay</button>
         <button class="trigger-pill" onclick="quickAsk('Sunita took a half day today')">🎙️ Sunita took a half day today</button>
-        <button class="trigger-pill" onclick="quickAsk('Give 2000 rupees advance to Sunita')">🎙️ Give 2000 rupees advance to Sunita</button>
-        <button class="trigger-pill" onclick="quickAsk('Pay Sunita salary with Amazon Pay')">🎙️ Pay Sunita with Amazon Pay</button>
+        <button class="trigger-pill" onclick="quickAsk('Give 2000 rupees advance to Sunita')">🎙️ Advance 2000 to Sunita</button>
         <button class="trigger-pill" onclick="quickAsk('Undo last entry')">🎙️ Undo last entry</button>
       </div>
     </div>
@@ -1432,7 +1537,7 @@ def render_page(request: Request) -> str:
     <!-- Alexa Spoken Speech Bubble -->
     <div class="hologram-bubble">
       <span class="bubble-speaker">Alexa</span>
-      <span id="speechText">"Hisaab is active. Speak a command or tap a prompt above."</span>
+      <span id="speechText">"Hisaab is active. Say 'Alexa' followed by your question, or tap any trigger above."</span>
     </div>
 
     <!-- Real-time MCP Inspector -->
@@ -1458,6 +1563,38 @@ def render_page(request: Request) -> str:
 </main>
 
 <script>
+// ------------------------------------------------------------- Web Audio Synthesized Alexa Wake Chime
+function playAlexaWakeChime() {{
+  try {{
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = audioCtx.currentTime;
+
+    // Bell Tone 1 (G5 - 784 Hz)
+    const osc1 = audioCtx.createOscillator();
+    const gain1 = audioCtx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(784, now);
+    gain1.gain.setValueAtTime(0.2, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    osc1.connect(gain1);
+    gain1.connect(audioCtx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.15);
+
+    // Bell Tone 2 (C6 - 1046 Hz)
+    const osc2 = audioCtx.createOscillator();
+    const gain2 = audioCtx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(1046, now + 0.08);
+    gain2.gain.setValueAtTime(0.25, now + 0.08);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    osc2.connect(gain2);
+    gain2.connect(audioCtx.destination);
+    osc2.start(now + 0.08);
+    osc2.stop(now + 0.35);
+  }} catch (e) {{}}
+}}
+
 // ------------------------------------------------------------- 3D Audio Visualizer
 const canvas = document.getElementById('waveCanvas');
 const ctx = canvas.getContext('2d');
@@ -1485,11 +1622,16 @@ function drawWave() {{
 }}
 drawWave();
 
-// ------------------------------------------------------------- Voice Recognition & Simulator
+// ------------------------------------------------------------- Ambient Wake Word ("Alexa") Engine
+let handsFreeEnabled = true;
 let recognizing = false;
 let recognition = null;
+let wakeWordLock = false;
+
 const ringEl = document.getElementById('alexaLightRing');
-const pupilPip = document.getElementById('pupilPip');
+const wakeStatusText = document.getElementById('wakeStatusText');
+const wakeStatusIcon = document.getElementById('wakeStatusIcon');
+const btnWakeToggle = document.getElementById('btnWakeToggle');
 
 function setAlexaState(state) {{
   if (!ringEl) return;
@@ -1497,39 +1639,92 @@ function setAlexaState(state) {{
   if (state) ringEl.classList.add(state);
 }}
 
-if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {{
+function initSpeechRecognition() {{
+  if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {{
+    wakeStatusText.innerHTML = "Speech recognition unavailable in this browser. Use buttons or textbox.";
+    wakeStatusIcon.innerText = "⚠️";
+    return;
+  }}
+
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SpeechRec();
-  recognition.continuous = false;
-  recognition.interimResults = false;
+  recognition.continuous = true;
+  recognition.interimResults = true;
   recognition.lang = 'en-IN';
 
   recognition.onstart = () => {{
     recognizing = true;
-    isAudioActive = true;
-    document.getElementById('micBtn').innerText = '🔴 Listening...';
-    setAlexaState('listening');
+    wakeStatusIcon.innerText = "🟢";
+    wakeStatusText.innerHTML = "<b>Hands-Free Listening</b>: Just say <i>'Alexa...'</i> aloud";
+    btnWakeToggle.innerText = "Active";
   }};
 
   recognition.onresult = (e) => {{
-    const text = e.results[0][0].transcript;
-    document.getElementById('voiceInput').value = text;
-    sendVoicePrompt(text);
+    if (wakeWordLock) return;
+
+    for (let i = e.resultIndex; i < e.results.length; ++i) {{
+      const transcript = e.results[i][0].transcript.toLowerCase();
+      
+      // Check for Wake Word: "alexa" or "hey alexa"
+      if (transcript.includes('alexa')) {{
+        const parts = transcript.split('alexa');
+        const command = parts.slice(1).join(' ').trim();
+
+        if (!ringEl.classList.contains('listening')) {{
+          playAlexaWakeChime();
+          setAlexaState('listening');
+          isAudioActive = true;
+        }}
+
+        // If user finished their sentence
+        if (e.results[i].isFinal && command.length > 2) {{
+          wakeWordLock = true;
+          document.getElementById('voiceInput').value = command;
+          sendVoicePrompt(command);
+          break;
+        }}
+      }}
+    }}
+  }};
+
+  recognition.onerror = (e) => {{
+    if (e.error === 'not-allowed') {{
+      wakeStatusIcon.innerText = "🔒";
+      wakeStatusText.innerHTML = "Mic permission needed. Click <b>'Start Mic'</b> to enable Hands-Free.";
+      btnWakeToggle.innerText = "Start Mic";
+      handsFreeEnabled = false;
+    }}
   }};
 
   recognition.onend = () => {{
     recognizing = false;
-    document.getElementById('micBtn').innerText = '🎙️ Speak';
+    // Auto-restart to maintain ambient hands-free listening
+    if (handsFreeEnabled && !wakeWordLock) {{
+      setTimeout(() => {{
+        try {{ recognition.start(); }} catch(err) {{}}
+      }}, 300);
+    }}
   }};
 }}
 
-function toggleMic() {{
-  if (!recognition) {{
-    alert("Speech recognition isn't supported in this browser. Please type into the box.");
-    return;
+initSpeechRecognition();
+
+function toggleHandsFree() {{
+  if (!recognition) return;
+  if (recognizing) {{
+    handsFreeEnabled = false;
+    recognition.stop();
+    wakeStatusIcon.innerText = "⏸️";
+    wakeStatusText.innerHTML = "Hands-free paused. Click to re-enable.";
+    btnWakeToggle.innerText = "Enable";
+  }} else {{
+    handsFreeEnabled = true;
+    try {{ recognition.start(); }} catch(err) {{}}
   }}
-  if (recognizing) recognition.stop();
-  else recognition.start();
+}}
+
+function toggleMic() {{
+  toggleHandsFree();
 }}
 
 function quickAsk(text) {{
@@ -1541,6 +1736,7 @@ async function sendVoicePrompt(customText) {{
   const input = customText || document.getElementById('voiceInput').value.trim();
   if (!input) return;
 
+  wakeWordLock = true;
   const speechText = document.getElementById('speechText');
   const mcpJsonLog = document.getElementById('mcpJsonLog');
   speechText.innerText = "Processing via Alexa+ Agent Core over Streamable HTTP...";
@@ -1568,21 +1764,30 @@ async function sendVoicePrompt(customText) {{
       utter.onend = () => {{
         isAudioActive = false;
         setAlexaState(null);
+        wakeWordLock = false;
+        // Resume continuous listening
+        if (handsFreeEnabled && !recognizing) {{
+          try {{ recognition.start(); }} catch(err) {{}}
+        }}
       }};
       window.speechSynthesis.speak(utter);
     }} else {{
       isAudioActive = false;
-      setTimeout(() => setAlexaState(null), 2500);
+      setTimeout(() => {{
+        setAlexaState(null);
+        wakeWordLock = false;
+      }}, 2500);
     }}
 
     // Auto-reload on data mutation
     if (data.mutated) {{
-      setTimeout(() => window.location.reload(), 1600);
+      setTimeout(() => window.location.reload(), 1800);
     }}
   }} catch (err) {{
     speechText.innerText = "Connection error to Hisaab MCP server.";
     isAudioActive = false;
     setAlexaState(null);
+    wakeWordLock = false;
   }}
 }}
 
@@ -1596,6 +1801,13 @@ function toggleUpiDrawer(id) {{
 function markSalaryPaid(person) {{
   quickAsk(`Pay ${{person}} salary with Amazon Pay`);
 }}
+
+// Start ambient listening on initial user interaction
+window.addEventListener('click', () => {{
+  if (recognition && !recognizing && handsFreeEnabled) {{
+    try {{ recognition.start(); }} catch(err) {{}}
+  }}
+}}, {{ once: true }});
 </script>
 </body>
 </html>"""
@@ -1615,6 +1827,9 @@ async def simulate_voice(request: Request) -> Response:
         return JSONResponse({"ok": False, "spoken_summary": "Invalid JSON request."}, status_code=400)
 
     prompt = (body.get("prompt") or "").strip().lower()
+    # Strip leading "alexa" if present
+    prompt = re.sub(r"^(hey\s+)?alexa\s*", "", prompt).strip()
+
     d = today()
     mutated = False
     trace = {
@@ -1623,6 +1838,16 @@ async def simulate_voice(request: Request) -> Response:
         "method": "tools/call",
         "input_prompt": prompt,
     }
+
+    with db() as conn:
+        people = conn.execute("SELECT * FROM people WHERE active=1 ORDER BY id").fetchall()
+
+    # Dynamic Person Matching
+    target_person = "Sunita"  # default
+    for p in people:
+        if p["name"].lower() in prompt:
+            target_person = p["name"]
+            break
 
     # Intent routing simulation
     if "undo" in prompt:
@@ -1633,45 +1858,58 @@ async def simulate_voice(request: Request) -> Response:
         trace["result"] = res
         return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
 
+    if "total" in prompt or "household" in prompt or "everyone" in prompt or "all staff" in prompt or "balance" in prompt and not any(p["name"].lower() in prompt for p in people):
+        res = household_hisaab(month=f"{d.year}-{d.month:02d}")
+        trace["tool"] = "household_hisaab"
+        trace["arguments"] = {"month": f"{d.year}-{d.month:02d}"}
+        trace["result"] = res
+        return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
+
+    if "list" in prompt or "who works" in prompt or "staff" in prompt and ("all" in prompt or "my" in prompt):
+        res = list_people()
+        trace["tool"] = "list_people"
+        trace["arguments"] = {}
+        trace["result"] = res
+        return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
+
     if "pay" in prompt and ("salary" in prompt or "amazon" in prompt or "upi" in prompt or "settle" in prompt):
-        res = pay_salary(person="Sunita", payment_mode="amazon_pay")
+        res = pay_salary(person=target_person, payment_mode="amazon_pay")
         mutated = True
         trace["tool"] = "pay_salary"
-        trace["arguments"] = {"person": "Sunita", "payment_mode": "amazon_pay"}
+        trace["arguments"] = {"person": target_person, "payment_mode": "amazon_pay"}
         trace["result"] = res
         return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
 
     if "half day" in prompt:
-        res = log_visit(person="Sunita", status="half_day")
+        res = log_visit(person=target_person, status="half_day")
         mutated = True
         trace["tool"] = "log_visit"
-        trace["arguments"] = {"person": "Sunita", "status": "half_day"}
+        trace["arguments"] = {"person": target_person, "status": "half_day"}
         trace["result"] = res
         return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
 
     if "advance" in prompt:
-        import re
         amt_match = re.search(r"(\d+)", prompt)
         amt = float(amt_match.group(1)) if amt_match else 2000.0
-        res = log_payment(person="Sunita", amount=amt, kind="advance")
+        res = log_payment(person=target_person, amount=amt, kind="advance")
         mutated = True
         trace["tool"] = "log_payment"
-        trace["arguments"] = {"person": "Sunita", "amount": amt, "kind": "advance"}
+        trace["arguments"] = {"person": target_person, "amount": amt, "kind": "advance"}
         trace["result"] = res
         return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
 
     if "absent" in prompt:
-        res = log_visit(person="Sunita", status="absent")
+        res = log_visit(person=target_person, status="absent")
         mutated = True
         trace["tool"] = "log_visit"
-        trace["arguments"] = {"person": "Sunita", "status": "absent"}
+        trace["arguments"] = {"person": target_person, "status": "absent"}
         trace["result"] = res
         return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
 
-    # Default: month hisaab query
-    res = month_hisaab(person="Sunita", month=f"{d.year}-{d.month:02d}")
+    # Default: month hisaab query for target person
+    res = month_hisaab(person=target_person, month=f"{d.year}-{d.month:02d}")
     trace["tool"] = "month_hisaab"
-    trace["arguments"] = {"person": "Sunita", "month": f"{d.year}-{d.month:02d}"}
+    trace["arguments"] = {"person": target_person, "month": f"{d.year}-{d.month:02d}"}
     trace["result"] = res
     return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
 

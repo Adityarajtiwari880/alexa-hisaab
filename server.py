@@ -1531,7 +1531,7 @@ def render_page(request: Request) -> str:
 
   <!-- Nostalgic Alexa 3D Light Ring Console -->
   <section class="alexa-hero-console">
-    <div class="alexa-ring-stage">
+    <div class="alexa-ring-stage" onclick="tapToTalk()" style="cursor:pointer;" title="Click the ring to wake Alexa">
       <div class="alexa-ring-viewport" id="ringViewport">
         <div class="alexa-ambient-halo" id="ambientHalo"></div>
         <div class="alexa-crown-bezel">
@@ -1549,7 +1549,7 @@ def render_page(request: Request) -> str:
     <div class="wake-word-banner">
       <div class="wake-status-group">
         <span id="wakeStatusIcon">🟢</span>
-        <span id="wakeStatusText"><b>Hands-Free Active</b>: Just say <i>"Alexa..."</i> aloud</span>
+        <span id="wakeStatusText"><b>Hands-Free Active</b>: Just say <i>"Alexa..."</i> aloud (or click ring)</span>
       </div>
       <button class="btn-wake-toggle" id="btnWakeToggle" onclick="toggleHandsFree()">Listening</button>
     </div>
@@ -1562,7 +1562,7 @@ def render_page(request: Request) -> str:
 
     <!-- Voice Input Dock -->
     <div class="input-dock">
-      <input type="text" id="voiceInput" class="voice-textbox" placeholder="Say 'Alexa, Sunita ka hisaab kitna hai?' or type query..." />
+      <input type="text" id="voiceInput" class="voice-textbox" placeholder="Say 'Alexa, Sunita ka hisaab kitna hai?' or type query..." onkeydown="if(event.key==='Enter') sendVoicePrompt()" />
       <button class="action-btn-primary" id="micBtn" onclick="tapToTalk()">🎙️ Speak</button>
       <button class="action-btn-primary" onclick="sendVoicePrompt()">Ask</button>
     </div>
@@ -1643,9 +1643,22 @@ def render_page(request: Request) -> str:
 
 <script>
 // ------------------------------------------------------------- Web Audio Synthesized Alexa Wake Chime
+let sharedAudioCtx = null;
+function getAudioContext() {{
+  if (!sharedAudioCtx) {{
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) sharedAudioCtx = new AudioCtx();
+  }}
+  if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {{
+    sharedAudioCtx.resume();
+  }}
+  return sharedAudioCtx;
+}}
+
 function playAlexaWakeChime() {{
   try {{
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const audioCtx = getAudioContext();
+    if (!audioCtx) return;
     const now = audioCtx.currentTime;
 
     // Bell Tone 1 (G5 - 784 Hz)
@@ -1653,24 +1666,24 @@ function playAlexaWakeChime() {{
     const gain1 = audioCtx.createGain();
     osc1.type = 'sine';
     osc1.frequency.setValueAtTime(784, now);
-    gain1.gain.setValueAtTime(0.2, now);
-    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    gain1.gain.setValueAtTime(0.25, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
     osc1.connect(gain1);
     gain1.connect(audioCtx.destination);
     osc1.start(now);
-    osc1.stop(now + 0.15);
+    osc1.stop(now + 0.16);
 
     // Bell Tone 2 (C6 - 1046 Hz)
     const osc2 = audioCtx.createOscillator();
     const gain2 = audioCtx.createGain();
     osc2.type = 'sine';
     osc2.frequency.setValueAtTime(1046, now + 0.08);
-    gain2.gain.setValueAtTime(0.25, now + 0.08);
-    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    gain2.gain.setValueAtTime(0.3, now + 0.08);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
     osc2.connect(gain2);
     gain2.connect(audioCtx.destination);
     osc2.start(now + 0.08);
-    osc2.stop(now + 0.35);
+    osc2.stop(now + 0.38);
   }} catch (e) {{}}
 }}
 
@@ -1701,11 +1714,13 @@ function drawWave() {{
 }}
 drawWave();
 
-// ------------------------------------------------------------- Ambient Wake Word & Speech Engine
+// ------------------------------------------------------------- Alexa State & Dialogue Engine
 let handsFreeEnabled = true;
 let recognizing = false;
 let recognition = null;
 let wakeWordLock = false;
+let isAwake = false;
+let awakeTimer = null;
 
 const ringEl = document.getElementById('alexaLightRing');
 const wakeStatusText = document.getElementById('wakeStatusText');
@@ -1713,11 +1728,40 @@ const wakeStatusIcon = document.getElementById('wakeStatusIcon');
 const btnWakeToggle = document.getElementById('btnWakeToggle');
 const liveTranscriptStrip = document.getElementById('liveTranscriptStrip');
 const liveHearingText = document.getElementById('liveHearingText');
+const speechText = document.getElementById('speechText');
+const micBtn = document.getElementById('micBtn');
 
 function setAlexaState(state) {{
   if (!ringEl) return;
   ringEl.classList.remove('listening', 'thinking', 'speaking');
   if (state) ringEl.classList.add(state);
+}}
+
+function wakeAlexa(initialCommand) {{
+  if (awakeTimer) clearTimeout(awakeTimer);
+  isAwake = true;
+  playAlexaWakeChime();
+  setAlexaState('listening');
+  isAudioActive = true;
+  micBtn.innerText = '🔴 Listening...';
+
+  if (initialCommand && initialCommand.trim().length > 1) {{
+    isAwake = false;
+    document.getElementById('voiceInput').value = initialCommand.trim();
+    sendVoicePrompt(initialCommand.trim());
+  }} else {{
+    speechText.innerText = "Listening... Ask about hisaab, attendance, or salary.";
+    // Keep waiting for command for 7 seconds
+    awakeTimer = setTimeout(() => {{
+      if (isAwake && !wakeWordLock) {{
+        isAwake = false;
+        setAlexaState(null);
+        isAudioActive = false;
+        micBtn.innerText = '🎙️ Speak';
+        speechText.innerText = '"Hisaab is active. Say \'Alexa\' or click the ring to talk."';
+      }}
+    }}, 7000);
+  }}
 }}
 
 function initSpeechRecognition() {{
@@ -1750,29 +1794,34 @@ function initSpeechRecognition() {{
       liveTranscriptStrip.style.display = 'flex';
       liveHearingText.innerText = transcript;
 
-      // Check for Wake Words: "alexa", "hey alexa", or direct Hindi query
-      const wakeMatch = transcript.match(/(?:hey\\s+)?(?:alexa|elixa|alex|alxa|अलेक्सा)/i);
+      // Check for Wake Words: 'alexa', 'hey alexa', 'अलेक्सा', etc.
+      const wakeMatch = transcript.match(/(?:hey\s+)?(?:alexa|elixa|alex|alxa|अलेक्सा)/i);
 
       if (wakeMatch) {{
         const parts = transcript.split(wakeMatch[0]);
         const command = parts.slice(1).join(' ').trim();
 
-        if (!ringEl.classList.contains('listening')) {{
-          playAlexaWakeChime();
-          setAlexaState('listening');
-          isAudioActive = true;
+        if (e.results[i].isFinal) {{
+          wakeAlexa(command);
+          break;
+        }} else if (!ringEl.classList.contains('listening')) {{
+          wakeAlexa(null);
         }}
-
-        // If user finished their sentence
-        if (e.results[i].isFinal && command.length > 2) {{
+      }} else if (isAwake) {{
+        // Alexa is already awake and waiting for user command
+        if (e.results[i].isFinal && transcript.length > 1) {{
+          if (awakeTimer) clearTimeout(awakeTimer);
+          isAwake = false;
           wakeWordLock = true;
-          document.getElementById('voiceInput').value = command;
-          sendVoicePrompt(command);
+          document.getElementById('voiceInput').value = transcript;
+          sendVoicePrompt(transcript);
           break;
         }}
-      }} else if (e.results[i].isFinal && transcript.length > 5 && !wakeWordLock) {{
-        // If in direct push-to-talk mode
-        if (document.getElementById('micBtn').innerText.includes('Listening')) {{
+      }} else if (e.results[i].isFinal && transcript.length > 3) {{
+        // Direct intent matching without wake word
+        const hasStaff = /(?:sunita|ramesh|raju|anil|सुनीता|रमेश|राजू|अनिल)/i.test(transcript);
+        const hasIntent = /(?:hisaab|hisab|salary|pay|advance|absent|chhutti|half|balance|undo|wapas|हिसाब|वेतन|छुट्टी)/i.test(transcript);
+        if (hasStaff || hasIntent || micBtn.innerText.includes('Listening')) {{
           wakeWordLock = true;
           document.getElementById('voiceInput').value = transcript;
           sendVoicePrompt(transcript);
@@ -1805,12 +1854,13 @@ function initSpeechRecognition() {{
 initSpeechRecognition();
 
 function tapToTalk() {{
-  playAlexaWakeChime();
-  setAlexaState('listening');
-  isAudioActive = true;
-  document.getElementById('micBtn').innerText = '🔴 Listening...';
+  getAudioContext();
+  if ('speechSynthesis' in window) {{
+    try {{ window.speechSynthesis.resume(); }} catch(e) {{}}
+  }}
   handsFreeEnabled = true;
-  try {{ recognition.start(); }} catch(err) {{}}
+  try {{ if (recognition && !recognizing) recognition.start(); }} catch(err) {{}}
+  wakeAlexa(null);
 }}
 
 function toggleHandsFree() {{
@@ -1847,17 +1897,102 @@ function filterFeatures(category, btn) {{
   }});
 }}
 
+// ------------------------------------------------------------- Seamless Ledger Sync (No Full Page Reload)
+async function refreshLedgerCards() {{
+  try {{
+    const res = await fetch('/');
+    const htmlText = await res.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlText, 'text/html');
+    const newContainer = doc.querySelector('.cards-container');
+    if (newContainer) {{
+      document.querySelector('.cards-container').innerHTML = newContainer.innerHTML;
+    }}
+  }} catch (e) {{}}
+}}
+
+// ------------------------------------------------------------- Robust Speech Synthesis (TTS)
+function speakAlexaResponse(text) {{
+  if (!('speechSynthesis' in window)) {{
+    isAudioActive = false;
+    setTimeout(() => {{
+      setAlexaState(null);
+      wakeWordLock = false;
+    }}, 2500);
+    return;
+  }}
+
+  try {{
+    window.speechSynthesis.resume();
+    window.speechSynthesis.cancel();
+  }} catch(e) {{}}
+
+  const utter = new SpeechSynthesisUtterance(text);
+  window._activeAlexaUtterance = utter; // Prevent Chrome GC silence bug
+
+  // Pick best available voice (English India, UK Female, Natural, or English)
+  const voices = window.speechSynthesis.getVoices();
+  if (voices && voices.length > 0) {{
+    const chosen = voices.find(v => v.lang === 'en-IN') ||
+                   voices.find(v => v.name.toLowerCase().includes('india')) ||
+                   voices.find(v => v.name.toLowerCase().includes('zira')) ||
+                   voices.find(v => v.name.toLowerCase().includes('natural')) ||
+                   voices.find(v => v.name.toLowerCase().includes('google uk english female')) ||
+                   voices.find(v => v.lang.startsWith('en'));
+    if (chosen) utter.voice = chosen;
+  }}
+
+  utter.rate = 1.0;
+  utter.pitch = 1.05;
+
+  let speechFinished = false;
+  const finishSpeech = () => {{
+    if (speechFinished) return;
+    speechFinished = true;
+    isAudioActive = false;
+    setAlexaState(null);
+    wakeWordLock = false;
+    window._activeAlexaUtterance = null;
+    micBtn.innerText = '🎙️ Speak';
+    if (handsFreeEnabled && !recognizing) {{
+      try {{ recognition.start(); }} catch(err) {{}}
+    }}
+  }};
+
+  utter.onend = finishSpeech;
+  utter.onerror = (e) => {{
+    finishSpeech();
+  }};
+
+  // Safety fallback: Release lock even if browser drops onend
+  const approxDurationMs = Math.max(3000, (text.split(' ').length / 2.0) * 1000 + 2000);
+  setTimeout(() => {{
+    if (!speechFinished) {{
+      finishSpeech();
+    }}
+  }}, approxDurationMs);
+
+  try {{
+    window.speechSynthesis.speak(utter);
+  }} catch(err) {{
+    finishSpeech();
+  }}
+}}
+
+// ------------------------------------------------------------- Voice Prompt Dispatcher
 async function sendVoicePrompt(customText) {{
   const input = customText || document.getElementById('voiceInput').value.trim();
   if (!input) return;
 
   wakeWordLock = true;
-  const speechText = document.getElementById('speechText');
+  if (awakeTimer) clearTimeout(awakeTimer);
+  isAwake = false;
+
   const mcpJsonLog = document.getElementById('mcpJsonLog');
   speechText.innerText = "Processing via Alexa+ Agent Core over Streamable HTTP...";
   setAlexaState('thinking');
   isAudioActive = true;
-  document.getElementById('micBtn').innerText = '🎙️ Speak';
+  micBtn.innerText = '🎙️ Speak';
 
   try {{
     const resp = await fetch('/api/simulate', {{
@@ -1871,32 +2006,12 @@ async function sendVoicePrompt(customText) {{
     mcpJsonLog.innerText = JSON.stringify(data.mcp_trace, null, 2);
     setAlexaState('speaking');
 
-    // Speak response via browser TTS
-    if ('speechSynthesis' in window) {{
-      window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(data.spoken_summary);
-      utter.rate = 1.0;
-      utter.pitch = 1.05;
-      utter.onend = () => {{
-        isAudioActive = false;
-        setAlexaState(null);
-        wakeWordLock = false;
-        if (handsFreeEnabled && !recognizing) {{
-          try {{ recognition.start(); }} catch(err) {{}}
-        }}
-      }};
-      window.speechSynthesis.speak(utter);
-    }} else {{
-      isAudioActive = false;
-      setTimeout(() => {{
-        setAlexaState(null);
-        wakeWordLock = false;
-      }}, 2500);
-    }}
+    // Speak response out loud
+    speakAlexaResponse(data.spoken_summary);
 
-    // Auto-reload on data mutation
+    // Dynamic ledger update without cutting off speech or reloading page
     if (data.mutated) {{
-      setTimeout(() => window.location.reload(), 1800);
+      refreshLedgerCards();
     }}
   }} catch (err) {{
     speechText.innerText = "Connection error to Hisaab MCP server.";
@@ -1917,12 +2032,23 @@ function markSalaryPaid(person) {{
   quickAsk(`Pay ${{person}} salary with Amazon Pay`);
 }}
 
-// Initialize listening on first click
+// Pre-load voices
+if ('speechSynthesis' in window) {{
+  window.speechSynthesis.onvoiceschanged = () => {{
+    try {{ window.speechSynthesis.getVoices(); }} catch(e) {{}}
+  }};
+}}
+
+// Unlock audio and start listening on user interaction
 window.addEventListener('click', () => {{
+  getAudioContext();
+  if ('speechSynthesis' in window) {{
+    try {{ window.speechSynthesis.resume(); }} catch(e) {{}}
+  }}
   if (recognition && !recognizing && handsFreeEnabled) {{
     try {{ recognition.start(); }} catch(err) {{}}
   }}
-}}, {{ once: true }});
+}});
 </script>
 </body>
 </html>"""

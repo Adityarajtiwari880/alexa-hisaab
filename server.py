@@ -3,7 +3,7 @@ Hisaab: A voice-first ledger for household help, served as an MCP server for Ale
 Production-ready build for the Amazon Developer Hackathon (Build, Ship, Shape).
 Supports:
 - Model Context Protocol (MCP) Streamable HTTP Transport (spec 2025-11-25+)
-- Ultra-Modern 3D Holographic Alexa+ Voice & Visual Simulator
+- Nostalgic Alexa Light Ring in Modern 3D Isometric Format
 - 1-Tap Amazon Pay / UPI Settlement with Dynamic QR Code Generation
 - Present-by-default pro-rata wage calculations & 8-week habit pattern recognition
 - Multi-modal output: Spoken audio, HTML5 Cards, WhatsApp Slip, and iCal feed
@@ -612,17 +612,14 @@ def build_ics() -> str:
 PAGE_CSS = """
 :root {
   --bg-dark: #04080c;
-  --panel-bg: rgba(13, 21, 29, 0.72);
-  --panel-border: rgba(0, 210, 255, 0.18);
-  --panel-highlight: rgba(255, 255, 255, 0.08);
+  --panel-bg: rgba(13, 21, 29, 0.75);
+  --panel-border: rgba(0, 210, 255, 0.2);
   --text-main: #f0f6fa;
   --text-muted: #8ba2b0;
   --cyan-glow: #00d2ff;
-  --alexa-blue: #0084ff;
-  --neon-purple: #8a2be2;
+  --alexa-blue: #0077ff;
   --coral-red: #ff5757;
   --emerald-green: #00e676;
-  --gold-accent: #ffb703;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -630,9 +627,9 @@ PAGE_CSS = """
 body {
   background: var(--bg-dark);
   background-image: 
-    radial-gradient(circle at 50% 0%, rgba(0, 132, 255, 0.14) 0%, transparent 60%),
-    radial-gradient(circle at 10% 30%, rgba(0, 210, 255, 0.08) 0%, transparent 45%),
-    radial-gradient(circle at 90% 70%, rgba(138, 43, 226, 0.08) 0%, transparent 50%);
+    radial-gradient(circle at 50% 0%, rgba(0, 119, 255, 0.16) 0%, transparent 60%),
+    radial-gradient(circle at 15% 35%, rgba(0, 210, 255, 0.08) 0%, transparent 45%),
+    radial-gradient(circle at 85% 70%, rgba(0, 85, 255, 0.08) 0%, transparent 50%);
   background-attachment: fixed;
   color: var(--text-main);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -715,13 +712,12 @@ main {
   overflow: hidden;
 }
 
-/* Cyber Shimmer Light Bar */
 .alexa-hero-console::before {
   content: "";
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, #00d2ff, #8a2be2, #00d2ff, transparent);
+  background: linear-gradient(90deg, transparent, #00d2ff, #0055ff, #00d2ff, transparent);
   background-size: 200% auto;
   animation: cyber-shimmer 4s linear infinite;
 }
@@ -730,83 +726,152 @@ main {
   100% { background-position: 200% 0; }
 }
 
-/* 3D Orb Stage */
-.orb-stage {
+/* ------------------------------------------------------------- Nostalgic Alexa Light Ring (Modern 3D) */
+.alexa-ring-stage {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding-bottom: 1.25rem;
+  padding: 1.25rem 0 0.5rem;
+  perspective: 900px;
 }
-.orb-viewport {
-  width: 140px;
-  height: 140px;
+.alexa-ring-viewport {
+  width: 175px;
+  height: 175px;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  perspective: 900px;
+  transform-style: preserve-3d;
+  transform: rotateX(46deg); /* 3D Echo Crown perspective */
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* The Core Glowing Sphere */
-.orb-core {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
+/* Ambient Radial Halo */
+.alexa-ambient-halo {
   position: absolute;
-  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #00d2ff 35%, #0062ff 70%, #0b1528 100%);
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 210, 255, 0.38) 0%, rgba(0, 119, 255, 0.18) 50%, transparent 70%);
+  filter: blur(18px);
+  animation: halo-breathe 3.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* The Iconic Cylindrical Light Ring Bezel */
+.alexa-crown-bezel {
+  width: 165px;
+  height: 165px;
+  border-radius: 50%;
+  position: relative;
+  background: radial-gradient(circle, #081118 55%, #152533 70%, #030608 100%);
   box-shadow: 
-    0 0 25px rgba(0, 210, 255, 0.8),
-    0 0 55px rgba(0, 132, 255, 0.4),
-    inset -8px -8px 18px rgba(0, 0, 0, 0.85),
-    inset 5px 5px 12px rgba(255, 255, 255, 0.7);
-  animation: float-orb 4s ease-in-out infinite;
-  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s;
+    0 18px 40px rgba(0, 0, 0, 0.85),
+    0 0 30px rgba(0, 210, 255, 0.28),
+    inset 0 1px 2px rgba(255, 255, 255, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* 3D Gyroscope Ring 1 */
-.orb-ring-1 {
-  width: 110px;
-  height: 110px;
+/* The Nostalgic Dual-Tone Cyan & Blue Light Ring */
+.alexa-light-ring {
+  width: 150px;
+  height: 150px;
   border-radius: 50%;
   position: absolute;
-  border: 2px solid rgba(0, 210, 255, 0.65);
-  box-shadow: 0 0 14px rgba(0, 210, 255, 0.45);
-  transform-style: preserve-3d;
-  animation: rotate-ring-1 6s linear infinite;
-}
-@keyframes rotate-ring-1 {
-  0% { transform: rotateX(65deg) rotateY(0deg); }
-  100% { transform: rotateX(65deg) rotateY(360deg); }
+  padding: 7px;
+  background: conic-gradient(
+    from 0deg,
+    #0044ff 0deg,
+    #0088ff 55deg,
+    #00d2ff 110deg,
+    #00ffff 165deg,
+    #ffffff 180deg,
+    #00ffff 195deg,
+    #00d2ff 250deg,
+    #0066ff 305deg,
+    #0044ff 360deg
+  );
+  box-shadow: 
+    0 0 24px #00d2ff,
+    0 0 50px rgba(0, 210, 255, 0.65),
+    inset 0 0 16px rgba(0, 255, 255, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: ring-sweep 5s linear infinite;
+  transition: all 0.35s ease;
 }
 
-/* 3D Gyroscope Ring 2 */
-.orb-ring-2 {
-  width: 126px;
-  height: 126px;
+/* Active Ring State Modifiers */
+.alexa-light-ring.listening {
+  animation: ring-sweep 1.6s linear infinite, ring-pulse 1s ease-in-out infinite alternate !important;
+  box-shadow: 0 0 40px #00ffff, 0 0 85px rgba(0, 210, 255, 0.95), inset 0 0 22px #ffffff !important;
+}
+.alexa-light-ring.thinking {
+  animation: ring-sweep 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
+  box-shadow: 0 0 45px #00a8e8, 0 0 90px rgba(0, 119, 255, 0.85) !important;
+}
+.alexa-light-ring.speaking {
+  animation: ring-sweep 2.8s linear infinite, ring-voice-undulate 1.2s ease-in-out infinite !important;
+}
+
+@keyframes ring-sweep {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes ring-pulse {
+  from { filter: brightness(1.1); }
+  to { filter: brightness(1.45); }
+}
+@keyframes ring-voice-undulate {
+  0%, 100% { transform: rotate(0deg) scale(1); filter: brightness(1.15); }
+  50% { transform: rotate(180deg) scale(1.03); filter: brightness(1.4); box-shadow: 0 0 35px #00ffff, 0 0 70px rgba(0, 210, 255, 0.85); }
+}
+@keyframes halo-breathe {
+  0%, 100% { opacity: 0.6; transform: scale(0.95); }
+  50% { opacity: 0.95; transform: scale(1.05); }
+}
+
+/* Acoustic Hub / Center Face */
+.alexa-hub-center {
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
-  position: absolute;
-  border: 1.5px dashed rgba(138, 43, 226, 0.6);
-  box-shadow: 0 0 16px rgba(138, 43, 226, 0.35);
-  transform-style: preserve-3d;
-  animation: rotate-ring-2 9s linear infinite reverse;
-}
-@keyframes rotate-ring-2 {
-  0% { transform: rotateX(115deg) rotateY(0deg); }
-  100% { transform: rotateX(115deg) rotateY(360deg); }
+  background: radial-gradient(circle at 45% 40%, #0d1720 0%, #04080c 70%, #010305 100%);
+  border: 1px solid rgba(0, 210, 255, 0.25);
+  box-shadow: 
+    inset 0 3px 8px rgba(0, 0, 0, 0.95),
+    0 0 12px rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
 }
 
-@keyframes float-orb {
-  0%, 100% { transform: translateY(0px) scale(1); }
-  50% { transform: translateY(-7px) scale(1.02); }
+/* Center Directional Aperture Pip */
+.alexa-pupil-pip {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #00ffff 50%, #0066ff 100%);
+  box-shadow: 0 0 14px #00ffff, 0 0 25px #00d2ff;
+  animation: pupil-breathe 2.5s ease-in-out infinite;
+  transition: all 0.3s;
+}
+@keyframes pupil-breathe {
+  0%, 100% { transform: scale(0.85); opacity: 0.75; }
+  50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 22px #00ffff, 0 0 38px #00d2ff; }
 }
 
 /* Audio Waveform Canvas */
 .wave-canvas {
-  width: 220px;
-  height: 38px;
-  margin-top: 0.25rem;
-  opacity: 0.85;
+  width: 240px;
+  height: 36px;
+  margin-top: 0.4rem;
+  opacity: 0.9;
 }
 
 /* Voice Input Controls */
@@ -983,7 +1048,7 @@ main {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #00d2ff, #8a2be2);
+  background: linear-gradient(135deg, #00d2ff, #0055ff);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1329,15 +1394,20 @@ def render_page(request: Request) -> str:
     </div>
   </header>
 
-  <!-- 3D Holographic Alexa+ Console -->
+  <!-- Nostalgic Alexa 3D Light Ring Console -->
   <section class="alexa-hero-console">
-    <div class="orb-stage">
-      <div class="orb-viewport" id="orbViewport">
-        <div class="orb-ring-2" id="orbRing2"></div>
-        <div class="orb-ring-1" id="orbRing1"></div>
-        <div class="orb-core" id="orbCore"></div>
+    <div class="alexa-ring-stage">
+      <div class="alexa-ring-viewport" id="ringViewport">
+        <div class="alexa-ambient-halo" id="ambientHalo"></div>
+        <div class="alexa-crown-bezel">
+          <div class="alexa-light-ring" id="alexaLightRing">
+            <div class="alexa-hub-center">
+              <div class="alexa-pupil-pip" id="pupilPip"></div>
+            </div>
+          </div>
+        </div>
       </div>
-      <canvas class="wave-canvas" id="waveCanvas" width="220" height="38"></canvas>
+      <canvas class="wave-canvas" id="waveCanvas" width="240" height="36"></canvas>
     </div>
 
     <!-- Voice Input Dock -->
@@ -1418,7 +1488,14 @@ drawWave();
 // ------------------------------------------------------------- Voice Recognition & Simulator
 let recognizing = false;
 let recognition = null;
-const orbCore = document.getElementById('orbCore');
+const ringEl = document.getElementById('alexaLightRing');
+const pupilPip = document.getElementById('pupilPip');
+
+function setAlexaState(state) {{
+  if (!ringEl) return;
+  ringEl.classList.remove('listening', 'thinking', 'speaking');
+  if (state) ringEl.classList.add(state);
+}}
 
 if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {{
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1431,8 +1508,7 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {{
     recognizing = true;
     isAudioActive = true;
     document.getElementById('micBtn').innerText = '🔴 Listening...';
-    orbCore.style.boxShadow = '0 0 45px #00d2ff, 0 0 85px rgba(0, 210, 255, 0.8)';
-    orbCore.style.transform = 'scale(1.15)';
+    setAlexaState('listening');
   }};
 
   recognition.onresult = (e) => {{
@@ -1443,10 +1519,7 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {{
 
   recognition.onend = () => {{
     recognizing = false;
-    isAudioActive = false;
     document.getElementById('micBtn').innerText = '🎙️ Speak';
-    orbCore.style.boxShadow = '0 0 25px rgba(0, 210, 255, 0.8), 0 0 55px rgba(0, 132, 255, 0.4)';
-    orbCore.style.transform = 'scale(1)';
   }};
 }}
 
@@ -1471,6 +1544,7 @@ async function sendVoicePrompt(customText) {{
   const speechText = document.getElementById('speechText');
   const mcpJsonLog = document.getElementById('mcpJsonLog');
   speechText.innerText = "Processing via Alexa+ Agent Core over Streamable HTTP...";
+  setAlexaState('thinking');
   isAudioActive = true;
 
   try {{
@@ -1483,6 +1557,7 @@ async function sendVoicePrompt(customText) {{
 
     speechText.innerText = `"${{data.spoken_summary}}"`;
     mcpJsonLog.innerText = JSON.stringify(data.mcp_trace, null, 2);
+    setAlexaState('speaking');
 
     // Speak response via browser TTS
     if ('speechSynthesis' in window) {{
@@ -1490,10 +1565,14 @@ async function sendVoicePrompt(customText) {{
       const utter = new SpeechSynthesisUtterance(data.spoken_summary);
       utter.rate = 1.0;
       utter.pitch = 1.05;
-      utter.onend = () => {{ isAudioActive = false; }};
+      utter.onend = () => {{
+        isAudioActive = false;
+        setAlexaState(null);
+      }};
       window.speechSynthesis.speak(utter);
     }} else {{
       isAudioActive = false;
+      setTimeout(() => setAlexaState(null), 2500);
     }}
 
     // Auto-reload on data mutation
@@ -1503,6 +1582,7 @@ async function sendVoicePrompt(customText) {{
   }} catch (err) {{
     speechText.innerText = "Connection error to Hisaab MCP server.";
     isAudioActive = false;
+    setAlexaState(null);
   }}
 }}
 

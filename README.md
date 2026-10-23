@@ -1,13 +1,15 @@
 # Hisaab — Voice-First Household Ledger & Amazon Pay Hub for Alexa+
 
 > **Amazon Developer Hackathon — Alexa+ Track Submission**  
-> Built with open standards: **Agent Skills (`SKILL.md`)**, **Model Context Protocol (MCP)** over **Streamable HTTP Transport** (`spec 2025-11-25+`), and **FastMCP**.
+> Built with open standards: **Agent Skills (`SKILL.md`)**, **Model Context Protocol (MCP)** over **Streamable HTTP Transport** (`spec 2025-11-25+`), and **FastMCP**.  
+> 📺 **3-Minute Video Demo:** [Watch on YouTube](https://www.youtube.com/watch?v=x_PTlbbt49k)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-Streamable%20HTTP%20(2025--11--25%2B)-blue.svg)](https://modelcontextprotocol.io)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-Open%20Standard-purple.svg)](SKILL.md)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](https://python.org)
 [![Tests](https://img.shields.io/badge/pytest-12%20passed-brightgreen.svg)](tests/test_server.py)
+[![YouTube Demo](https://img.shields.io/badge/YouTube-Demo%20(3:00)-red?logo=youtube)](https://www.youtube.com/watch?v=x_PTlbbt49k)
 
 ---
 

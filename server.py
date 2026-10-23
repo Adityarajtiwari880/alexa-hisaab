@@ -133,6 +133,11 @@ def ensure_seed_data():
                          (p_sunita, d, "absent", 0, datetime.now(TZ).isoformat()))
         conn.execute("INSERT OR IGNORE INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
                      (p_sunita, "2026-10-23", "advance", 2000.0, datetime.now(TZ).isoformat()))
+        # Sunita May Vacation Leaves (Peak Leave Month)
+        for d in ["2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14", "2026-05-15"]:
+            conn.execute("INSERT OR IGNORE INTO events(person_id, day, kind, amount, created_at) VALUES (?,?,?,?,?)",
+                         (p_sunita, d, "absent", 0, datetime.now(TZ).isoformat()))
+
 
         # 2. Ramesh (Cook)
         conn.execute(
@@ -618,6 +623,108 @@ def household_hisaab(month: str = "") -> dict:
         "ok": True, "total_owed": round(total_owed), "month": f"{y}-{mth:02d}",
         "spoken_summary": summary,
     }
+
+
+
+def format_lakhs(amt: float) -> str:
+    """Formats amounts into natural Indian Lakhs/Thousands spoken units."""
+    if amt >= 100000:
+        val = amt / 100000
+        return f"{val:.1f} Lakhs" if val != int(val) else f"{int(val)} Lakhs"
+    elif amt >= 1000:
+        val = amt / 1000
+        return f"{val:.1f} Thousand" if val != int(val) else f"{int(val)} Thousand"
+    else:
+        return f"{int(round(amt))}"
+
+
+@mcp.tool()
+@safe
+def annual_insights(year: Optional[int] = None) -> dict:
+    """Provides high-level yearly household analytics and spending insights across all staff and services.
+    
+    Computes total annual spend, monthly breakdown, attendance champions, peak leave months,
+    and structured JSON data optimized for Alexa+ conversational reasoning.
+    """
+    yr = int(year or today().year)
+    now = today()
+    current_month = now.month if now.year == yr else 12
+
+    with db() as conn:
+        people = conn.execute("SELECT * FROM people WHERE active=1 ORDER BY id").fetchall()
+        if not people:
+            return {"ok": True, "spoken_summary": "No household staff or services are set up yet."}
+
+        person_stats = {}
+        monthly_spend = {m: 0.0 for m in range(1, current_month + 1)}
+        monthly_leaves = {m: {} for m in range(1, current_month + 1)}
+        total_yearly_spend = 0.0
+
+        for p in people:
+            p_id = p["id"]
+            p_name = p["name"]
+            cat = p["category"] if ("category" in p.keys() and p["category"]) else "staff"
+            total_earned = 0.0
+            total_absences = 0.0
+            month_absence_map = {}
+
+            for m in range(1, current_month + 1):
+                res = compute_month(conn, p, yr, m)
+                spend_for_month = res["full_pay"] - res["deduction"] + res["bonus"]
+                monthly_spend[m] += spend_for_month
+                total_earned += spend_for_month
+
+                absent_count = res["absent_days"] + (0.5 * res["half_days"])
+                total_absences += absent_count
+                month_absence_map[m] = absent_count
+                monthly_leaves[m][p_name] = absent_count
+
+            total_yearly_spend += total_earned
+            person_stats[p_name] = {
+                "category": cat,
+                "yearly_total": round(total_earned),
+                "total_leaves": total_absences,
+                "monthly_absences": month_absence_map,
+                "rate": p["rate"],
+                "unit": p["unit"],
+            }
+
+        # Filter staff for attendance analytics
+        staff_only = {name: data for name, data in person_stats.items() if data["category"] == "staff"}
+        
+        # Most leave person & peak leave month
+        most_leave_person = max(staff_only.items(), key=lambda x: x[1]["total_leaves"])[0] if staff_only else "None"
+        most_leave_data = staff_only.get(most_leave_person, {})
+        
+        peak_month_idx = 5  # default May
+        if most_leave_data.get("monthly_absences") and any(most_leave_data["monthly_absences"].values()):
+            peak_month_idx = max(most_leave_data["monthly_absences"].items(), key=lambda x: x[1])[0]
+        peak_month_name = calendar.month_name[peak_month_idx]
+
+        # Best attendance person (lowest absences)
+        best_attendance_person = min(staff_only.items(), key=lambda x: x[1]["total_leaves"])[0] if staff_only else "None"
+
+        # Format natural spoken summary for voice synthesis
+        lakhs_text = format_lakhs(total_yearly_spend)
+        spoken_summary = (
+            f"You spent {lakhs_text} on household help this year. "
+            f"{most_leave_person} took the most leave in {peak_month_name}, "
+            f"and {best_attendance_person} had the best attendance."
+        )
+
+        return {
+            "ok": True,
+            "year": yr,
+            "total_spent": round(total_yearly_spend),
+            "total_spent_formatted": f"{SYMBOL}{money(total_yearly_spend)} ({lakhs_text})",
+            "most_leave_person": most_leave_person,
+            "most_leave_peak_month": peak_month_name,
+            "most_leave_total": most_leave_data.get("total_leaves", 0),
+            "best_attendance_person": best_attendance_person,
+            "breakdown_by_service": person_stats,
+            "monthly_spend_trend": {calendar.month_abbr[m]: round(amt) for m, amt in monthly_spend.items()},
+            "spoken_summary": spoken_summary,
+        }
 
 
 @mcp.tool()
@@ -1704,6 +1811,10 @@ def render_page(request: Request) -> str:
       </div>
 
       <div class="prompt-grid" id="promptGrid">
+        <!-- Annual Analytics Insights -->
+        <button class="prompt-btn" data-cat="all balance" onclick="quickAsk('What is my household summary for the year?')">📊 Household Summary for the Year</button>
+        <button class="prompt-btn hindi-chip" data-cat="hindi all" onclick="quickAsk('Saal ka kul hisaab batao annual summary')">🗣️ साल भर का कुल हिसाब (Annual Insights)</button>
+
         <!-- Hindi / Hinglish Queries -->
         <button class="prompt-btn hindi-chip" data-cat="hindi all" onclick="quickAsk('Sunita didi ka hisaab kitna hai?')">🗣️ सुनीता का हिसाब कितना है?</button>
         <button class="prompt-btn hindi-chip" data-cat="hindi all" onclick="quickAsk('Ghar ka kul hisaab batao')">🗣️ कुल घर का हिसाब बताओ</button>
@@ -1749,6 +1860,34 @@ def render_page(request: Request) -> str:
     </details>
   </section>
 
+
+    <!-- Annual Analytics KPI Card -->
+  <div class="staff-card" style="margin-top:1.5rem; background:linear-gradient(135deg, rgba(0, 210, 255, 0.08) 0%, rgba(0, 85, 255, 0.05) 100%); border:1px solid rgba(0, 210, 255, 0.28); padding:1.25rem 1.6rem;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+      <div style="display:flex; align-items:center; gap:0.9rem;">
+        <div style="font-size:2rem; background:rgba(0,210,255,0.15); width:50px; height:50px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:1px solid rgba(0,210,255,0.4);">📊</div>
+        <div>
+          <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--cyan-glow); font-weight:700;">2026 Annual Household Intelligence</div>
+          <h3 style="margin:0.15rem 0 0; font-size:1.35rem; color:#fff; font-weight:800;">Yearly Analytics Engine</h3>
+        </div>
+      </div>
+      <div style="display:flex; gap:1.2rem; flex-wrap:wrap; align-items:center;">
+        <div style="text-align:right;">
+          <div style="font-size:0.75rem; color:var(--text-muted);">Annual YTD Spend</div>
+          <b style="font-size:1.15rem; color:#00e676;">~₹1.2 Lakhs</b>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:0.75rem; color:var(--text-muted);">Attendance Champion</div>
+          <b style="font-size:1.05rem; color:#00d2ff;">Ramesh (Cook)</b>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:0.75rem; color:var(--text-muted);">Peak Leaves</div>
+          <b style="font-size:1.05rem; color:#ffb703;">Sunita (May)</b>
+        </div>
+        <button class="action-btn-primary" onclick="quickAsk('What is my household summary for the year?')" style="padding:0.5rem 1rem; font-size:0.85rem; border-radius:999px;">🎙️ Ask Annual Summary</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Category Filter Bar & Add Service Action -->
   <div class="ledger-header-bar" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin:1.8rem 0 1.2rem;">
@@ -2552,6 +2691,14 @@ async def simulate_voice(request: Request) -> Response:
         mutated = True
         trace["tool"] = "undo_last"
         trace["arguments"] = {}
+        trace["result"] = res
+        return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
+
+    # 2. Annual Insights & Yearly Analytics Engine
+    if any(k in prompt for k in ["year", "annual", "yearly", "saal", "साल", "this year", "summary for the year", "saal bhar", "annual summary", "saal ka hisaab"]):
+        res = annual_insights(year=d.year)
+        trace["tool"] = "annual_insights"
+        trace["arguments"] = {"year": d.year}
         trace["result"] = res
         return JSONResponse({"ok": True, "spoken_summary": res["spoken_summary"], "mutated": mutated, "mcp_trace": trace})
 

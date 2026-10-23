@@ -1,6 +1,9 @@
 import pytest
 from datetime import date
-from server import db, set_up_person, log_visit, log_absences, log_payment, pay_salary, month_hisaab, household_hisaab, list_people, undo_last
+from server import (
+    db, set_up_person, log_visit, log_absences, log_payment, pay_salary,
+    month_hisaab, household_hisaab, list_people, undo_last, annual_insights
+)
 
 @pytest.fixture(autouse=True)
 def clean_db(monkeypatch, tmp_path):
@@ -57,3 +60,19 @@ def test_undo_functionality():
     undo_res = undo_last()
     assert undo_res["ok"] is True
     assert undo_res["undone"]["person"] == "Ramesh"
+
+def test_annual_insights_engine():
+    set_up_person(name="Sunita", pay_amount=9000, pay_unit="month")
+    set_up_person(name="Ramesh", pay_amount=6500, pay_unit="month")
+    
+    # Sunita takes leave in May 2026 (peak leave month)
+    log_absences(person="Sunita", dates=["2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14"])
+    
+    res = annual_insights(year=2026)
+    assert res["ok"] is True
+    assert res["year"] == 2026
+    assert res["most_leave_person"] == "Sunita"
+    assert res["most_leave_peak_month"] == "May"
+    assert res["best_attendance_person"] == "Ramesh"
+    assert "Sunita took the most leave in May" in res["spoken_summary"]
+    assert "Ramesh had the best attendance" in res["spoken_summary"]

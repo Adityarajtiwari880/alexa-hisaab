@@ -21,6 +21,7 @@ Unlike conventional accounting applications that require active daily attendance
 - "Alexa, pay Sunita's salary with Amazon Pay."
 - "Alexa, set up Ramesh (Cook) at 6,000 rupees a month with Sunday off."
 - "Alexa, what is my total household help balance for this month?"
+- "Alexa, what's my household summary for the year?"
 - "Alexa, undo last entry."
 
 ## Architecture & Transport
@@ -80,6 +81,12 @@ Enumerates all active staff members and their pay parameters.
 
 ### 9. `undo_last`
 Reverts the most recent event transaction to correct verbal errors.
+
+### 10. `annual_insights`
+Provides macro-level yearly household analytics and spending intelligence across all domestic staff, daily milk supplies, and subscriptions.
+- `year`: Optional calendar year (defaults to current year, e.g., 2026).
+- **Spoken Summary**: Natural narrative for Alexa+ voice synthesis (*"You spent 1.2 Lakhs on household help this year. Sunita took the most leave in May, and Ramesh had the best attendance."*).
+- **Structured JSON**: Returns full monthly spending trend, service-by-service breakdown, attendance champion, peak leave month, and delivery units for LLM reasoning.
 
 ## Multi-Modal Output & Integrations
 - **Echo Show / Web Card**: Displays itemized ledger lines, pro-rated deductions, and live balance.
